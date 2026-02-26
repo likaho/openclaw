@@ -1,0 +1,187 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: channel-whatsapp
+  namespace: openclaw-channels
+  labels:
+    app: channel-whatsapp
+    component: channel
+    channel: whatsapp
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: channel-whatsapp
+  template:
+    metadata:
+      labels:
+        app: channel-whatsapp
+        component: channel
+        channel: whatsapp
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/metrics"
+        sidecar.istio.io/inject: "true"
+    spec:
+      serviceAccountName: channel-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+      - name: channel-whatsapp
+        image: openclaw/channel-whatsapp:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 3000
+          protocol: TCP
+        - name: metrics
+          containerPort: 9090
+          protocol: TCP
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: SERVICE_NAME
+          value: "channel-whatsapp"
+        - name: CHANNEL_TYPE
+          value: "WHATSAPP"
+        - name: REDIS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: openclaw-config
+              key: REDIS_URL
+        - name: CONTROL_PLANE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: openclaw-config
+              key: CONTROL_PLANE_URL
+        - name: MESSAGE_QUEUE
+          value: "whatsapp:inbound"
+        envFrom:
+        - configMapRef:
+            name: openclaw-config
+        - secretRef:
+            name: openclaw-secrets
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: session-storage
+          mountPath: /app/sessions
+        - name: whatsapp-sessions
+          mountPath: /app/whatsapp-sessions
+      volumes:
+      - name: session-storage
+        emptyDir: {}
+      - name: whatsapp-sessions
+        persistentVolumeClaim:
+          claimName: whatsapp-sessions-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: channel-whatsapp
+  namespace: openclaw-channels
+  labels:
+    app: channel-whatsapp
+    component: channel
+    channel: whatsapp
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 3000
+    targetPort: 3000
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+    protocol: TCP
+  selector:
+    app: channel-whatsapp
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: channel-whatsapp-hpa
+  namespace: openclaw-channels
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: channel-whatsapp
+  minReplicas: 2
+  maxReplicas: 20
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 60
+      - type: Pods
+        value: 4
+        periodSeconds: 60
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 300
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: channel-whatsapp-pdb
+  namespace: openclaw-channels
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: channel-whatsapp
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: whatsapp-sessions-pvc
+  namespace: openclaw-channels
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard

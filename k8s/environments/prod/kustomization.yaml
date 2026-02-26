@@ -1,0 +1,74 @@
+# Production environment Kustomize overlay
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: openclaw
+
+resources:
+- ../../base
+
+# Use production image tags (set by CI/CD from git tags)
+images:
+- name: openclaw/api-gateway
+  newTag: v2026.2.26
+- name: openclaw/control-plane
+  newTag: v2026.2.26
+- name: openclaw/channel-discord
+  newTag: v2026.2.26
+- name: openclaw/channel-telegram
+  newTag: v2026.2.26
+- name: openclaw/channel-slack
+  newTag: v2026.2.26
+- name: openclaw/channel-whatsapp
+  newTag: v2026.2.26
+- name: openclaw/agent-runtime
+  newTag: v2026.2.26
+- name: openclaw/plugin-registry
+  newTag: v2026.2.26
+
+# Production config
+configMapGenerator:
+- name: openclaw-config
+  behavior: replace
+  literals:
+  - LOG_LEVEL=warn
+  - REDIS_URL=redis://redis-prod.openclaw-system:6379
+  - API_GATEWAY_URL=http://api-gateway.openclaw:18789
+  - CONTROL_PLANE_URL=http://control-plane.openclaw:3000
+  - ENABLE_RATE_LIMITING=true
+
+# Production-specific patches
+patches:
+# Higher resource limits for production
+- patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/cpu
+      value: "2000m"
+  target:
+    kind: Deployment
+    labelSelector: app=api-gateway
+
+- patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/memory
+      value: "2Gi"
+  target:
+    kind: Deployment
+    labelSelector: app=api-gateway
+
+# Production HPA settings
+- patch: |-
+    - op: replace
+      path: /spec/minReplicas
+      value: 3
+  target:
+    kind: HorizontalPodAutoscaler
+    labelSelector: app=api-gateway
+
+- patch: |-
+    - op: replace
+      path: /spec/maxReplicas
+      value: 50
+  target:
+    kind: HorizontalPodAutoscaler
+    labelSelector: app=api-gateway

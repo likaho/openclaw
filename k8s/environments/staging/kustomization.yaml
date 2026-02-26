@@ -1,0 +1,48 @@
+# Staging environment Kustomize overlay
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: openclaw
+
+resources:
+- ../../base
+
+# Use staging image tags
+images:
+- name: openclaw/api-gateway
+  newTag: staging-latest
+- name: openclaw/control-plane
+  newTag: staging-latest
+- name: openclaw/channel-discord
+  newTag: staging-latest
+- name: openclaw/channel-telegram
+  newTag: staging-latest
+- name: openclaw/channel-slack
+  newTag: staging-latest
+- name: openclaw/channel-whatsapp
+  newTag: staging-latest
+- name: openclaw/agent-runtime
+  newTag: staging-latest
+- name: openclaw/plugin-registry
+  newTag: staging-latest
+
+# Staging config
+configMapGenerator:
+- name: openclaw-config
+  behavior: replace
+  literals:
+  - LOG_LEVEL=info
+  - REDIS_URL=redis://redis-staging.openclaw-system:6379
+  - API_GATEWAY_URL=http://api-gateway.openclaw:18789
+  - CONTROL_PLANE_URL=http://control-plane.openclaw:3000
+
+# Enable autoscaling
+patches:
+- patch: |-
+    - op: add
+      path: /spec/template/spec/containers/0/env/-
+      value:
+        name: NODE_ENV
+        value: staging
+  target:
+    kind: Deployment

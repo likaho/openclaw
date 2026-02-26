@@ -1,0 +1,136 @@
+{{- define "channel.fullname" -}}
+{{- printf "%s-channel-%s" .Release.Name .channel.name -}}
+{{- end -}}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "channel.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openclaw.labels" . | nindent 4 }}
+    app: channel-{{ .channel.name }}
+    component: channel
+    channel: {{ .channel.name | upper }}
+spec:
+  replicas: {{ .channel.replicaCount }}
+  selector:
+    matchLabels:
+      app: channel-{{ .channel.name }}
+  template:
+    metadata:
+      labels:
+        app: channel-{{ .channel.name }}
+        component: channel
+        channel: {{ .channel.name | upper }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/metrics"
+        {{- if .Values.global.serviceMesh.enabled }}
+        sidecar.istio.io/inject: "true"
+        {{- end }}
+    spec:
+      serviceAccountName: channel-sa
+      securityContext:
+        {{- toYaml .Values.security.podSecurityContext | nindent 8 }}
+      containers:
+      - name: channel-{{ .channel.name }}
+        image: "{{ .Values.global.imageRegistry }}/openclaw/channel-{{ .channel.name }}:{{ .Values.global.imageTag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.global.imagePullPolicy | default "IfNotPresent" }}
+        ports:
+        - name: http
+          containerPort: 3000
+          protocol: TCP
+        - name: metrics
+          containerPort: 9090
+          protocol: TCP
+        env:
+        - name: NODE_ENV
+          value: {{ .Values.global.environment | default "production" | quote }}
+        - name: SERVICE_NAME
+          value: "channel-{{ .channel.name }}"
+        - name: CHANNEL_TYPE
+          value: {{ .channel.name | upper | quote }}
+        - name: REDIS_URL
+          value: {{ .Values.redis.url | quote }}
+        - name: CONTROL_PLANE_URL
+          value: {{ include "openclaw.fullname" .}}-control-plane:{{ .Values.controlPlane.service.port }}
+        envFrom:
+        - configMapRef:
+            name: {{ include "openclaw.fullname" . }}-config
+        resources:
+          {{- toYaml .channel.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        volumeMounts:
+        - name: session-storage
+          mountPath: /app/sessions
+      volumes:
+      - name: session-storage
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "channel.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: channel-{{ .channel.name }}
+    component: channel
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 3000
+    targetPort: 3000
+  selector:
+    app: channel-{{ .channel.name }}
+---
+{{- if .channel.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "channel.fullname" . }}-hpa
+  namespace: {{ .Release.Namespace }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "channel.fullname" . }}
+  minReplicas: {{ .channel.autoscaling.minReplicas }}
+  maxReplicas: {{ .channel.autoscaling.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+---
+{{- end }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "channel.fullname" . }}-pdb
+  namespace: {{ .Release.Namespace }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: channel-{{ .channel.name }}

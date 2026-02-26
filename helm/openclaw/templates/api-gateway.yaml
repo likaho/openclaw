@@ -1,0 +1,168 @@
+{{- define "apiGateway.fullname" -}}
+{{- printf "%s-%s" .Release.Name "api-gateway" -}}
+{{- end -}}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "apiGateway.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openclaw.labels" . | nindent 4 }}
+    app: api-gateway
+    component: gateway
+spec:
+  replicas: {{ .Values.apiGateway.replicaCount }}
+  selector:
+    matchLabels:
+      app: api-gateway
+      {{- include "openclaw.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+        {{- include "openclaw.selectorLabels" . | nindent 8 }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "18789"
+        prometheus.io/path: "/metrics"
+        {{- if .Values.global.serviceMesh.enabled }}
+        sidecar.istio.io/inject: "true"
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "apiGateway.fullname" . }}-sa
+      securityContext:
+        {{- toYaml .Values.security.podSecurityContext | nindent 8 }}
+      containers:
+      - name: api-gateway
+        image: "{{ .Values.global.imageRegistry }}/{{ .Values.apiGateway.image.repository }}:{{ .Values.apiGateway.image.tag }}"
+        imagePullPolicy: {{ .Values.apiGateway.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: 18789
+          protocol: TCP
+        - name: ws
+          containerPort: 18790
+          protocol: TCP
+        - name: metrics
+          containerPort: 9090
+          protocol: TCP
+        env:
+        - name: NODE_ENV
+          value: {{ .Values.global.environment | default "production" | quote }}
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: SERVICE_NAME
+          value: "api-gateway"
+        {{- if .Values.redis.enabled }}
+        - name: REDIS_URL
+          value: {{ .Values.redis.url | quote }}
+        {{- end }}
+        envFrom:
+        - configMapRef:
+            name: {{ include "openclaw.fullname" . }}-config
+        {{- if .Values.secrets.enabled }}
+        - secretRef:
+            name: {{ include "openclaw.fullname" . }}-secrets
+        {{- end }}
+        resources:
+          {{- toYaml .Values.apiGateway.resources | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.apiGateway.healthCheck.liveness.path }}
+            port: http
+          initialDelaySeconds: {{ .Values.apiGateway.healthCheck.liveness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.apiGateway.healthCheck.liveness.periodSeconds }}
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.apiGateway.healthCheck.readiness.path }}
+            port: http
+          initialDelaySeconds: {{ .Values.apiGateway.healthCheck.readiness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.apiGateway.healthCheck.readiness.periodSeconds }}
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: config
+        configMap:
+          name: {{ include "openclaw.fullname" . }}-config
+      - name: tmp
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "apiGateway.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openclaw.labels" . | nindent 4 }}
+    app: api-gateway
+    component: gateway
+spec:
+  type: {{ .Values.apiGateway.service.type }}
+  ports:
+  - name: http
+    port: {{ .Values.apiGateway.service.port }}
+    targetPort: http
+    protocol: TCP
+  - name: https
+    port: {{ .Values.apiGateway.service.httpsPort }}
+    targetPort: http
+    protocol: TCP
+  selector:
+    app: api-gateway
+    {{- include "openclaw.selectorLabels" . | nindent 4 }}
+---
+{{- if .Values.apiGateway.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "apiGateway.fullname" . }}-hpa
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openclaw.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "apiGateway.fullname" . }}
+  minReplicas: {{ .Values.apiGateway.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.apiGateway.autoscaling.maxReplicas }}
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.apiGateway.autoscaling.targetCPUUtilizationPercentage }}
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.apiGateway.autoscaling.targetMemoryUtilizationPercentage }}
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+{{- end }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "apiGateway.fullname" . }}-pdb
+  namespace: {{ .Release.Namespace }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: api-gateway

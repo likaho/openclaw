@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openclaw
+  labels:
+    istio-injection: enabled
+    name: openclaw
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openclaw-channels
+  labels:
+    istio-injection: enabled
+    name: openclaw-channels
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openclaw-system
+  labels:
+    istio-injection: enabled
+    name: openclaw-system
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openclaw-monitoring
+  labels:
+    istio-injection: enabled
+    name: openclaw-monitoring

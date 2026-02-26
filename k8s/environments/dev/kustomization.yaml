@@ -1,0 +1,72 @@
+# Development environment Kustomize overlay
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: openclaw
+
+resources:
+- ../../base
+
+# Override image tags for dev
+images:
+- name: openclaw/api-gateway
+  newTag: dev-latest
+- name: openclaw/control-plane
+  newTag: dev-latest
+- name: openclaw/channel-discord
+  newTag: dev-latest
+- name: openclaw/channel-telegram
+  newTag: dev-latest
+- name: openclaw/channel-slack
+  newTag: dev-latest
+- name: openclaw/channel-whatsapp
+  newTag: dev-latest
+- name: openclaw/agent-runtime
+  newTag: dev-latest
+- name: openclaw/plugin-registry
+  newTag: dev-latest
+
+# Development config overrides
+patches:
+# Reduce replicas for faster deployment
+- patch: |-
+    - op: replace
+      path: /spec/replicas
+      value: 1
+  target:
+    kind: Deployment
+    labelSelector: app=api-gateway
+
+- patch: |-
+    - op: replace
+      path: /spec/replicas
+      value: 1
+  target:
+    kind: Deployment
+    labelSelector: app=control-plane
+
+# Disable autoscaling in dev
+- patch: |-
+    - op: remove
+      path: /spec/autoscaling
+  target:
+    kind: HorizontalPodAutoscaler
+
+# Add dev-specific environment variables
+- patch: |-
+    - op: add
+      path: /spec/template/spec/containers/0/env/-
+      value:
+        name: LOG_LEVEL
+        value: debug
+  target:
+    kind: Deployment
+
+configMapGenerator:
+- name: openclaw-config
+  behavior: replace
+  literals:
+  - LOG_LEVEL=debug
+  - REDIS_URL=redis://redis-dev.openclaw-system:6379
+  - API_GATEWAY_URL=http://api-gateway.openclaw:18789
+  - CONTROL_PLANE_URL=http://control-plane.openclaw:3000
