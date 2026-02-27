@@ -8,6 +8,7 @@ export default defineConfig({
     environment: 'node',
     include: [
       'services/**/*.test.ts',
+      'services/**/*.spec.ts',
     ],
     exclude: [
       'node_modules/**',
