@@ -1,0 +1,349 @@
+# Apache Kafka Configuration for OpenClaw Microservices
+# Kafka handles asynchronous message passing between services
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-config
+  namespace: openclaw-system
+data:
+  kafka.properties: |
+    # Kafka Configuration
+    bootstrap.servers=kafka-cluster:9092
+    
+    # Producer settings
+    acks=all
+    retries=3
+    batch.size=16384
+    linger.ms=10
+    buffer.memory=33554432
+    compression.type=snappy
+    
+    # Consumer settings
+    group.id=openclaw-consumer-group
+    auto.offset.reset=earliest
+    enable.auto.commit=true
+    auto.commit.interval.ms=1000
+    max.poll.records=500
+    session.timeout.ms=30000
+    
+    # Security
+    security.protocol=PLAINTEXT
+    
+    # Topics
+    default.replication.factor=3
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-topics
+  namespace: openclaw-system
+data:
+  init-topics.sh: |
+    #!/bin/bash
+    set -e
+    
+    echo "Waiting for Kafka to be ready..."
+    cub kafka-ready -z zookeeper-cluster:2181 1 40
+    
+    echo "Creating OpenClaw topics..."
+    
+    # Message events
+    kafka-topics --create --if-not-exists \
+      --topic message.inbound \
+      --partitions 6 \
+      --replication-factor 3 \
+      --zookeeper zookeeper-cluster:2181
+    
+    kafka-topics --create --if-not-exists \
+      --topic message.outbound \
+      --partitions 6 \
+      --replication-factor 3 \
+      --zookeeper zookeeper-cluster:2181
+    
+    # Agent events
+    kafka-topics --create --if-not-exists \
+      --topic agent.started \
+      --partitions 3 \
+      --replication-factor 3 \
+      --zookeeper zookeeper-cluster:2181
+    
+    kafka-topics --create --if-not-exists \
+      --topic agent.completed \
+      --partitions 3 \
+      --replication-factor 3 \
+      --zookeeper zookeeper-cluster:2181
+    
+    kafka-topics --create --if-not-exists \
+      --topic agent.failed \
+      --partitions 3 \
+      --replication-factor 3 \
+      --zookeeper zookeeper-cluster:2181
+    
+    # Channel events
+    kafka-topics --create --if-not-exists \
+      --topic channel.connected \
+      --partitions 3 \
+      --replication-factor 3 \
+      --zookeeper zookeeper-cluster:2181
+    
+    kafka-topics --create --if-not-exists \
+      --topic channel.disconnected \
+      --partitions 3 \
+      --replication-factor 3 \
+      --zookeeper zookeeper-cluster:2181
+    
+    kafka-topics --create --if-not-exists \
+      --topic channel.error \
+      --partitions 3 \
+      --replication-factor 3 \
+      --zookeeper zookeeper-cluster:2181
+    
+    # Session events
+    kafka-topics --create --if-not-exists \
+      --topic session.created \
+      --partitions 3 \
+      --replication-factor 3 \
+      --zookeeper zookeeper-cluster:2181
+    
+    kafka-topics --create --if-not-exists \
+      --topic session.ended \
+      --partitions 3 \
+      --replication-factor 3 \
+      --zookeeper zookeeper-cluster:2181
+    
+    # System events
+    kafka-topics --create --if-not-exists \
+      --topic system.health \
+      --partitions 1 \
+      --replication-factor 1 \
+      --zookeeper zookeeper-cluster:2181
+    
+    kafka-topics --create --if-not-exists \
+      --topic system.metrics \
+      --partitions 1 \
+      --replication-factor 1 \
+      --zookeeper zookeeper-cluster:2181
+    
+    echo "Listing topics..."
+    kafka-topics --list --zookeeper zookeeper-cluster:2181
+
+---
+# Zookeeper for Kafka
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: zookeeper-cluster
+  namespace: openclaw-system
+spec:
+  serviceName: zookeeper-cluster
+  replicas: 3
+  selector:
+    matchLabels:
+      app: zookeeper
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+    spec:
+      containers:
+      - name: zookeeper
+        image: confluentinc/cp-zookeeper:7.5.0
+        ports:
+        - containerPort: 2181
+          name: client
+        - containerPort: 2888
+          name: server
+        - containerPort: 3888
+          name: leader-election
+        env:
+        - name: ZOOKEEPER_CLIENT_PORT
+          value: "2181"
+        - name: ZOOKEEPER_TICK_TIME
+          value: "2000"
+        - name: ZOOKEEPER_INIT_LIMIT
+          value: "10"
+        - name: ZOOKEEPER_SYNC_LIMIT
+          value: "5"
+        - name: ZOOKEEPER_SERVERS
+          value: "zookeeper-cluster-0.zookeeper-cluster:2888:3888,zookeeper-cluster-1.zookeeper-cluster:2888:3888,zookeeper-cluster-2.zookeeper-cluster:2888:3888"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/zookeeper/data
+        - name: logs
+          mountPath: /var/lib/zookeeper/log
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi
+  - metadata:
+      name: logs
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper-cluster
+  namespace: openclaw-system
+spec:
+  clusterIP: None
+  ports:
+  - port: 2181
+    name: client
+  selector:
+    app: zookeeper
+
+---
+# Kafka Broker
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka-cluster
+  namespace: openclaw-system
+spec:
+  serviceName: kafka-cluster
+  replicas: 3
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      containers:
+      - name: kafka
+        image: confluentinc/cp-kafka:7.5.0
+        ports:
+        - containerPort: 9092
+          name: broker
+        - containerPort: 9093
+          name: external
+        env:
+        - name: KAFKA_BROKER_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: KAFKA_ZOOKEEPER_CONNECT
+          value: zookeeper-cluster:2181
+        - name: KAFKA_ADVERTISED_LISTENERS
+          value: PLAINTEXT://kafka-cluster-0.kafka-cluster:9092,PLAINTEXT_EXTERNAL://localhost:9093
+        - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+          value: PLAINTEXT:PLAINTEXT,PLAINTEXT_EXTERNAL:PLAINTEXT
+        - name: KAFKA_INTER_BROKER_LISTENER_NAME
+          value: PLAINTEXT
+        - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+          value: "3"
+        - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+          value: "3"
+        - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+          value: "2"
+        - name: KAFKA_LOG_RETENTION_HOURS
+          value: "168"
+        - name: KAFKA_LOG_SEGMENT_BYTES
+          value: "1073741824"
+        - name: KAFKA_NUM_PARTITIONS
+          value: "6"
+        - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE
+          value: "true"
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 2000m
+            memory: 4Gi
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/kafka/data
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 50Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-cluster
+  namespace: openclaw-system
+spec:
+  clusterIP: None
+  ports:
+  - port: 9092
+    name: broker
+  selector:
+    app: kafka
+
+---
+# Kafka Exporter for Prometheus monitoring
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-exporter
+  namespace: openclaw-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-exporter
+  template:
+    metadata:
+      labels:
+        app: kafka-exporter
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9308"
+    spec:
+      containers:
+      - name: kafka-exporter
+        image: danielqsj/kafka_exporter:v1.7.0
+        args:
+        - --kafka.server=kafka-cluster:9092
+        - --web.listen-address=:9308
+        - --web.telemetry-path=/metrics
+        ports:
+        - containerPort: 9308
+          name: metrics
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-exporter
+  namespace: openclaw-system
+spec:
+  ports:
+  - port: 9308
+    targetPort: 9308
+    name: metrics
+  selector:
+    app: kafka-exporter
