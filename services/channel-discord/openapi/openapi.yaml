@@ -1,0 +1,44 @@
+openapi: 3.0.3
+info:
+  title: OpenClaw Channel Discord
+  description: Discord messaging channel service
+  version: 2026.2.26
+
+servers:
+  - url: http://channel-discord:3000
+    description: Internal server
+  - url: http://localhost:3010
+    description: Local development
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: getHealth
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is healthy
+
+  /ready:
+    get:
+      summary: Readiness check
+      operationId: getReady
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is ready
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        instanceId:
+          type: string
+        connected:
+          type: boolean

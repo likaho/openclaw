@@ -1,0 +1,31 @@
+openapi: 3.0.3
+info:
+  title: OpenClaw Channel Slack
+  description: Slack messaging channel service
+  version: 2026.2.26
+
+servers:
+  - url: http://channel-telegram:3000
+    description: Internal server
+  - url: http://localhost:3011
+    description: Local development
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: getHealth
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is healthy
+  /ready:
+    get:
+      summary: Readiness check
+      operationId: getReady
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is ready

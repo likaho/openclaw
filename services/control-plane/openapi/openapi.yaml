@@ -1,0 +1,60 @@
+openapi: 3.0.3
+info:
+  title: OpenClaw Control Plane
+  description: ACP Protocol WebSocket Server
+  version: 2026.2.26
+
+servers:
+  - url: ws://control-plane:3000
+    description: Internal WebSocket server
+  - url: http://localhost:3000
+    description: Local development
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: getHealth
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is healthy
+
+  /ready:
+    get:
+      summary: Readiness check
+      operationId: getReady
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is ready
+
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      operationId: getMetrics
+      tags:
+        - Monitoring
+      responses:
+        '200':
+          description: Metrics data
+          content:
+            text/plain:
+              schema:
+                type: string
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        connections:
+          type: integer
+        authenticatedConnections:
+          type: integer
+        uptime:
+          type: number

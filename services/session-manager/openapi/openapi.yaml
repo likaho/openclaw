@@ -1,0 +1,192 @@
+openapi: 3.0.3
+info:
+  title: OpenClaw Session Manager
+  description: Centralized session management service
+  version: 2026.2.26
+
+servers:
+  - url: http://session-manager:3000
+    description: Internal server
+  - url: http://localhost:3001
+    description: Local development
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: getHealth
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /ready:
+    get:
+      summary: Readiness check
+      operationId: getReady
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is ready
+
+  /sessions:
+    post:
+      summary: Create a new session
+      operationId: createSession
+      tags:
+        - Sessions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSessionRequest'
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          description: Invalid request
+
+    get:
+      summary: List active sessions
+      operationId: listSessions
+      tags:
+        - Sessions
+      parameters:
+        - name: channel
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Session'
+
+  /sessions/{channel}/{userId}:
+    get:
+      summary: Get session by channel and user
+      operationId: getSession
+      tags:
+        - Sessions
+      parameters:
+        - name: channel
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Session found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '404':
+          description: Session not found
+
+    delete:
+      summary: Delete session
+      operationId: deleteSession
+      tags:
+        - Sessions
+      parameters:
+        - name: channel
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Session deleted
+        '404':
+          description: Session not found
+
+  /sessions/count:
+    get:
+      summary: Get session count
+      operationId: getSessionCount
+      tags:
+        - Sessions
+      parameters:
+        - name: channel
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Session count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        redis:
+          type: string
+        activeSessions:
+          type: integer
+        uptime:
+          type: number
+
+    CreateSessionRequest:
+      type: object
+      required:
+        - userId
+        - channel
+      properties:
+        userId:
+          type: string
+        channel:
+          type: string
+        metadata:
+          type: object
+
+    Session:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        channel:
+          type: string
+        createdAt:
+          type: integer
+        updatedAt:
+          type: integer
+        metadata:
+          type: object

@@ -1,0 +1,103 @@
+{{- define "session-manager.image" -}}
+{{- printf "%s/session-manager:%s" .Values.image.registry (default .Chart.AppVersion .Values.image.tag) -}}
+{{- end -}}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "openclaw.fullname" . }}-session-manager
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openclaw.labels" . | nindent 4 }}
+    app: session-manager
+    tier: backend
+spec:
+  replicas: {{ .Values.sessionManager.replicas }}
+  selector:
+    matchLabels:
+      {{- include "openclaw.selectorLabels" . | nindent 6 }}
+      app: session-manager
+  template:
+    metadata:
+      labels:
+        {{- include "openclaw.selectorLabels" . | nindent 8 }}
+        app: session-manager
+        tier: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3001"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: {{ include "openclaw.serviceAccountName" . }}
+      containers:
+        - name: session-manager
+          image: {{ include "session-manager.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 3001
+              name: http
+          env:
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "openclaw.fullname" . }}-config
+                  key: redis.url
+            - name: KAFKA_BROKERS
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "openclaw.fullname" . }}-config
+                  key: kafka.brokers
+            - name: SESSION_TTL
+              value: {{ .Values.sessionManager.sessionTtl | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.logLevel }}
+          {{- with .Values.sessionManager.env }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          envFrom:
+            - secretRef:
+                name: {{ include "openclaw.fullname" . }}-secrets
+          resources:
+            {{- toYaml .Values.sessionManager.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 3001
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "openclaw.fullname" . }}-session-manager
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "openclaw.labels" . | nindent 4 }}
+    app: session-manager
+spec:
+  ports:
+    - port: 3001
+      targetPort: 3001
+      name: http
+  selector:
+    {{- include "openclaw.selectorLabels" . | nindent 4 }}
+    app: session-manager
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "openclaw.fullname" . }}-session-manager
+  namespace: {{ .Release.Namespace }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "openclaw.fullname" . }}-session-manager
+  minReplicas: {{ .Values.sessionManager.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.sessionManager.autoscaling.maxReplicas }}
+  metrics:
+    {{- toYaml .Values.sessionManager.autoscaling.metrics | nindent 4 }}

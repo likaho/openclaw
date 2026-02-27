@@ -1,0 +1,248 @@
+openapi: 3.0.3
+info:
+  title: OpenClaw API Gateway
+  description: Main entry point for OpenClaw microservices
+  version: 2026.2.26
+  contact:
+    name: OpenClaw Team
+
+servers:
+  - url: https://api.openclaw.ai
+    description: Production server
+  - url: https://staging-api.openclaw.ai
+    description: Staging server
+  - url: http://localhost:18789
+    description: Local development
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: getHealth
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service is unhealthy
+
+  /ready:
+    get:
+      summary: Readiness check
+      operationId: getReady
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is ready
+
+  /metrics:
+    get:
+      summary: Prometheus metrics
+      operationId: getMetrics
+      tags:
+        - Monitoring
+      responses:
+        '200':
+          description: Metrics data
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /ws:
+    get:
+      summary: WebSocket connection
+      operationId: websocketConnect
+      tags:
+        - WebSocket
+      responses:
+        '101':
+          description: WebSocket upgrade successful
+
+  /api/sessions:
+    post:
+      summary: Create a new session
+      operationId: createSession
+      tags:
+        - Sessions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSessionRequest'
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          description: Invalid request
+
+    get:
+      summary: List active sessions
+      operationId: listSessions
+      tags:
+        - Sessions
+      responses:
+        '200':
+          description: List of sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Session'
+
+  /api/messages:
+    post:
+      summary: Send a message
+      operationId: sendMessage
+      tags:
+        - Messages
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+      responses:
+        '202':
+          description: Message queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageQueuedResponse'
+        '400':
+          description: Invalid request
+
+  /api/channels/status:
+    get:
+      summary: Get channel status
+      operationId: getChannelStatus
+      tags:
+        - Channels
+      responses:
+        '200':
+          description: Channel status
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  $ref: '#/components/schemas/ChannelStatus'
+
+  /api/agents/status:
+    get:
+      summary: Get agent runtime status
+      operationId: getAgentStatus
+      tags:
+        - Agents
+      responses:
+        '200':
+          description: Agent status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentStatusResponse'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+        service:
+          type: string
+        uptime:
+          type: number
+        timestamp:
+          type: integer
+
+    CreateSessionRequest:
+      type: object
+      required:
+        - userId
+        - channel
+      properties:
+        userId:
+          type: string
+        channel:
+          type: string
+          enum: [discord, telegram, slack, whatsapp, signal]
+        metadata:
+          type: object
+
+    Session:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        channel:
+          type: string
+        createdAt:
+          type: integer
+        updatedAt:
+          type: integer
+        metadata:
+          type: object
+
+    SendMessageRequest:
+      type: object
+      required:
+        - channel
+        - userId
+        - content
+      properties:
+        channel:
+          type: string
+        userId:
+          type: string
+        content:
+          type: string
+        sessionId:
+          type: string
+
+    MessageQueuedResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        messageId:
+          type: string
+
+    ChannelStatus:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        instanceId:
+          type: string
+
+    AgentStatusResponse:
+      type: object
+      properties:
+        runtimes:
+          type: array
+          items:
+            type: object
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+
+security:
+  - BearerAuth: []

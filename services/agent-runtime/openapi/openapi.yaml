@@ -1,0 +1,233 @@
+openapi: 3.0.3
+info:
+  title: OpenClaw Agent Runtime
+  description: AI Agent execution service
+  version: 2026.2.26
+
+servers:
+  - url: http://agent-runtime:3000
+    description: Internal server
+  - url: http://localhost:3002
+    description: Local development
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: getHealth
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /ready:
+    get:
+      summary: Readiness check
+      operationId: getReady
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is ready
+
+  /tasks:
+    post:
+      summary: Submit a new task
+      operationId: submitTask
+      tags:
+        - Tasks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskRequest'
+      responses:
+        '202':
+          description: Task accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '429':
+          description: Too many concurrent tasks
+        '400':
+          description: Invalid request
+
+    get:
+      summary: List active tasks
+      operationId: listTasks
+      tags:
+        - Tasks
+      responses:
+        '200':
+          description: List of active tasks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActiveTask'
+
+  /tasks/{taskId}:
+    get:
+      summary: Get task status
+      operationId: getTask
+      tags:
+        - Tasks
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Task found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskStatus'
+        '404':
+          description: Task not found
+
+  /tasks/{taskId}/cancel:
+    post:
+      summary: Cancel a task
+      operationId: cancelTask
+      tags:
+        - Tasks
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Task cancelled
+        '404':
+          description: Task not found
+
+  /runtimes:
+    get:
+      summary: Get runtime information
+      operationId: getRuntimeInfo
+      tags:
+        - Runtime
+      responses:
+        '200':
+          description: Runtime information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuntimeInfo'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        runtimeId:
+          type: string
+        activeTasks:
+          type: integer
+        maxConcurrentTasks:
+          type: integer
+        uptime:
+          type: number
+
+    TaskRequest:
+      type: object
+      required:
+        - sessionId
+        - input
+        - context
+      properties:
+        sessionId:
+          type: string
+        input:
+          type: string
+        context:
+          $ref: '#/components/schemas/TaskContext'
+        priority:
+          type: string
+          enum: [low, normal, high]
+          default: normal
+        timeout:
+          type: integer
+          description: Task timeout in milliseconds
+
+    TaskContext:
+      type: object
+      required:
+        - sessionId
+        - userId
+        - channel
+        - messageId
+        - tools
+      properties:
+        sessionId:
+          type: string
+        userId:
+          type: string
+        channel:
+          type: string
+        messageId:
+          type: string
+        tools:
+          type: array
+          items:
+            type: string
+        model:
+          type: string
+
+    TaskResponse:
+      type: object
+      properties:
+        taskId:
+          type: string
+        status:
+          type: string
+
+    TaskStatus:
+      type: object
+      properties:
+        taskId:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, completed, failed, cancelled]
+        result:
+          type: object
+
+    ActiveTask:
+      type: object
+      properties:
+        taskId:
+          type: string
+        sessionId:
+          type: string
+        startedAt:
+          type: integer
+        status:
+          type: string
+
+    RuntimeInfo:
+      type: object
+      properties:
+        runtimeId:
+          type: string
+        maxConcurrentTasks:
+          type: integer
+        uptime:
+          type: number
+        version:
+          type: string

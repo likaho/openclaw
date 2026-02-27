@@ -274,3 +274,57 @@ security:
     capabilities:
       drop:
         - ALL
+
+## Session Manager
+sessionManager:
+  enabled: true
+  replicaCount: 3
+  
+  image:
+    repository: openclaw/session-manager
+    tag: latest
+    pullPolicy: Always
+    
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+      
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+    
+  sessionTtl: 3600
+
+## Agent Runtime
+agentRuntime:
+  enabled: true
+  replicaCount: 3
+  
+  image:
+    repository: openclaw/agent-runtime
+    tag: latest
+    pullPolicy: Always
+    
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+      
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+    
+  sessionTtl: 3600
