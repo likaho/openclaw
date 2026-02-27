@@ -1,0 +1,17 @@
+{
+  "name": "@openclaw/monorepo",
+  "version": "2026.2.26",
+  "private": true,
+  "workspaces": [
+    "services/*"
+  ],
+  "scripts": {
+    "build": "pnpm -r run build",
+    "test": "pnpm -r run test",
+    "lint": "pnpm -r run lint",
+    "typecheck": "pnpm -r run typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}
