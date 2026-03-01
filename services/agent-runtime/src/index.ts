@@ -13,14 +13,14 @@ import {
   AgentResult, 
   AgentTaskStatus,
   TaskEvent 
-} from '../../shared/interfaces.js';
+} from '@openclaw/shared/interfaces.js';
 import { 
   OpenClawEvents, 
   KAFKA_TOPICS,
   AgentStartedEvent,
   AgentCompletedEvent,
   AgentFailedEvent 
-} from '../../shared/events.js';
+} from '@openclaw/shared/events.js';
 
 const AgentRuntimeConfigSchema = z.object({
   runtimeId: z.string().default('runtime-1'),

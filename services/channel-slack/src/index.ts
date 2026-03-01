@@ -9,8 +9,8 @@ import { Kafka } from 'kafkajs';
 import Redis from 'ioredis';
 import { Logger } from 'pino';
 import { z } from 'zod';
-import { InboundMessage } from '../../shared/interfaces.js';
-import { OpenClawEvents } from '../../shared/events.js';
+import { InboundMessage } from '@openclaw/shared/interfaces.js';
+import { OpenClawEvents } from '@openclaw/shared/events.js';
 
 const SlackConfigSchema = z.object({
   botToken: z.string().min(1),

@@ -3,7 +3,7 @@
  * Transforms Discord messages to OpenClaw InboundMessage format
  */
 
-import type { InboundMessage } from '../../shared/interfaces.js';
+import type { InboundMessage } from '../shared/interfaces.js';
 import type { DiscordMessage, DiscordMessageHandler } from './types.js';
 import { Kafka } from 'kafkajs';
 import { Logger } from 'pino';

@@ -8,8 +8,8 @@ import { Kafka } from 'kafkajs';
 import Redis from 'ioredis';
 import { Logger } from 'pino';
 import { z } from 'zod';
-import { InboundMessage } from '../../shared/interfaces.js';
-import { OpenClawEvents } from '../../shared/events.js';
+import { InboundMessage } from '@openclaw/shared/interfaces.js';
+import { OpenClawEvents } from '@openclaw/shared/events.js';
 
 const WhatsAppConfigSchema = z.object({
   sessionName: z.string().default('openclaw'),

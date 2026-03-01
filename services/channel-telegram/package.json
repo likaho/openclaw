@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "grammy": "^1.21.1",
-    "openclaw-plugin-sdk": "^2026.2.26",
     "ioredis": "^5.3.2",
     "kafkajs": "^2.2.4",
     "pino": "^8.19.0",

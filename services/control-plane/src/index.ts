@@ -9,8 +9,8 @@ import Redis from 'ioredis';
 import { Logger } from 'pino';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
-import { AgentTask, Session } from '../../shared/interfaces.js';
-import { OpenClawEvents, KAFKA_TOPICS } from '../../shared/events.js';
+import { AgentTask, Session } from '@openclaw/shared/interfaces.js';
+import { OpenClawEvents, KAFKA_TOPICS } from '@openclaw/shared/events.js';
 
 const ControlPlaneConfigSchema = z.object({
   port: z.number().default(3000),

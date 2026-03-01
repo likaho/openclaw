@@ -8,8 +8,8 @@ import { Kafka } from 'kafkajs';
 import { Logger } from 'pino';
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
-import { Session, InboundMessage } from '../../shared/interfaces.js';
-import { OpenClawEvents, KAFKA_TOPICS } from '../../shared/events.js';
+import { Session, InboundMessage } from '@openclaw/shared/interfaces.js';
+import { OpenClawEvents, KAFKA_TOPICS } from '@openclaw/shared/events.js';
 
 const SessionManagerConfigSchema = z.object({
   redisUrl: z.string().url().default('redis://localhost:6379'),

@@ -10,8 +10,8 @@ import Redis from 'ioredis';
 import { loadConfig } from './config.js';
 import { MessageHandler } from './handler.js';
 import type { DiscordMessage, DiscordChannelStatus } from './types.js';
-import { Events as OpenClawEvents } from '../../shared/events.js';
-import type { InboundMessage, ChannelStatus } from '../../shared/interfaces.js';
+import { Events as OpenClawEvents } from '@openclaw/shared/events';
+import type { InboundMessage, ChannelStatus } from '@openclaw/shared';
 
 const INSTANCE_ID = `discord-${process.env.POD_NAME || process.env.HOSTNAME || 'local'}-${Date.now()}`;
 

@@ -1,0 +1,21 @@
+{
+  "name": "@openclaw/shared",
+  "version": "2026.2.26",
+  "description": "Shared types and utilities for OpenClaw microservices",
+  "main": "./interfaces.ts",
+  "type": "module",
+  "exports": {
+    ".": "./interfaces.ts",
+    "./events": "./events.ts"
+  },
+  "scripts": {
+    "test": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.19",
+    "vitest": "^1.3.1"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
