@@ -3,15 +3,15 @@
  * Standalone microservice for handling Discord messaging
  */
 
-import { Client, GatewayIntentBits, Events, REST, Routes, GatewayDispatchEvents } from 'discord.js';
+import { Client, GatewayIntentBits, Events } from 'discord.js';
 import { Kafka } from 'kafkajs';
 import Redis from 'ioredis';
-import { Logger } from 'pino';
 
 import { loadConfig } from './config.js';
 import { MessageHandler } from './handler.js';
 import type { DiscordMessage, DiscordChannelStatus } from './types.js';
-import { Events as OpenClawEvents, ChannelConnectedEvent, ChannelDisconnectedEvent } from '../../shared/events.js';
+import { Events as OpenClawEvents } from '../../shared/events.js';
+import type { InboundMessage, ChannelStatus } from '../../shared/interfaces.js';
 
 const INSTANCE_ID = `discord-${process.env.POD_NAME || process.env.HOSTNAME || 'local'}-${Date.now()}`;
 

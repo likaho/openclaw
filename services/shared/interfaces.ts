@@ -121,6 +121,11 @@ export interface AgentResult {
 }
 
 /**
+ * Agent task status enum
+ */
+export type AgentTaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+
+/**
  * Session information
  */
 export interface Session {
