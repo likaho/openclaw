@@ -1,0 +1,273 @@
+# OpenClaw Microservices Helm Values
+
+global:
+  imageRegistry: docker.io
+  imagePullSecrets: []
+  domain: openclaw.local
+  clusterDomain: cluster.local
+
+  # Shared environment variables
+  env:
+    LOG_LEVEL: info
+    NODE_ENV: production
+    REDIS_HOST: redis-master
+    REDIS_PORT: "6379"
+    KAFKA_BROKERS: kafka-headless:9092
+
+  # Security
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+
+# API Gateway Configuration
+apiGateway:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    repository: openclaw/api-gateway
+    tag: 2026.2.26
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 3000
+    targetPort: http
+  
+  ingress:
+    enabled: true
+    className: nginx
+    hostname: api.openclaw.local
+    tls: true
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  
+  livenessProbe:
+    path: /health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  readinessProbe:
+    path: /ready
+    initialDelaySeconds: 10
+    periodSeconds: 5
+
+# Control Plane (ACP Server)
+controlPlane:
+  enabled: true
+  replicaCount: 2
+  
+  image:
+    repository: openclaw/control-plane
+    tag: 2026.2.26
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: http
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+  
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+# Session Manager (Stateful)
+sessionManager:
+  enabled: true
+  replicaCount: 1
+  
+  image:
+    repository: openclaw/session-manager
+    tag: 2026.2.26
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 3001
+    targetPort: http
+  
+  persistence:
+    enabled: true
+    storageClass: standard
+    accessMode: ReadWriteOnce
+    size: 10Gi
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+# Agent Runtime
+agentRuntime:
+  enabled: true
+  replicaCount: 3
+  
+  image:
+    repository: openclaw/agent-runtime
+    tag: 2026.2.26
+    pullPolicy: IfNotPresent
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 60
+    targetMemoryUtilizationPercentage: 75
+  
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+# Channel Services
+channels:
+  discord:
+    enabled: true
+    replicaCount: 2
+    image:
+      repository: openclaw/channel-discord
+      tag: 2026.2.26
+    autoscaling:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 10
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+  telegram:
+    enabled: true
+    replicaCount: 2
+    image:
+      repository: openclaw/channel-telegram
+      tag: 2026.2.26
+    autoscaling:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 10
+    env:
+      TELEGRAM_BOT_TOKEN: ""
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+  slack:
+    enabled: true
+    replicaCount: 2
+    image:
+      repository: openclaw/channel-slack
+      tag: 2026.2.26
+    autoscaling:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 10
+    env:
+      SLACK_BOT_TOKEN: ""
+      SLACK_SIGNING_SECRET: ""
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+  whatsapp:
+    enabled: true
+    replicaCount: 2
+    image:
+      repository: openclaw/channel-whatsapp
+      tag: 2026.2.26
+    autoscaling:
+      enabled: true
+      minReplicas: 1
+      maxReplicas: 10
+    env:
+      WHATSAPP_PHONE_NUMBER_ID: ""
+      WHATSAPP_ACCESS_TOKEN: ""
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+# Infrastructure
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: true
+    password: ""
+  master:
+    persistence:
+      enabled: true
+      size: 10Gi
+
+kafka:
+  enabled: true
+  replicaCount: 3
+  auth:
+    clientProtocol: plaintext
+  zookeeper:
+    enabled: true
+    replicaCount: 3
+
+# Observability
+observability:
+  prometheus:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      interval: 30s
+  loki:
+    enabled: true
+  jaeger:
+    enabled: true
+
+# Network Policies
+networkPolicy:
+  enabled: true
+
+# Pod Security Standards
+podSecurityStandards:
+  enabled: true
+  baseline: true

@@ -1,0 +1,24 @@
+apiVersion: v2
+name: openclaw
+description: OpenClaw Microservices Helm Chart
+type: application
+version: 2026.2.26
+appVersion: "2026.2.26"
+keywords:
+  - openclaw
+  - microservices
+  - messaging
+  - ai-agent
+maintainers:
+  - name: OpenClaw Team
+    url: https://openclaw.ai
+
+dependencies:
+  - name: redis
+    version: "17.x"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: redis.enabled
+  - name: kafka
+    version: "22.x"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: kafka.enabled
