@@ -53,3 +53,24 @@ kubectl -n openclaw-local exec deployment/conversation-service-hostpath -- \
 
 - Endpoint URLs can be overridden via environment variables (`*_HEALTH_URL`, `CONVERSATION_BASE_URL`).
 - Script exits non-zero when checks fail to support CI/CD gating.
+
+## Resilience recovery gate
+
+Run from your operator shell:
+
+```bash
+node scripts/enterprise-resilience-check.mjs --target orchestration-service
+```
+
+What it verifies:
+
+- rollout restart succeeds for the target deployment
+- rollout reaches ready state within timeout
+- post-restart enterprise readiness gate still reports `ok: true`
+
+Optional flags:
+
+- `--namespace <name>` (default `openclaw-local`)
+- `--target <deployment>` (default `orchestration-service`)
+- `--probe <deployment>` pod used to run readiness script (default `conversation-service-hostpath`)
+- `--timeout <seconds>` rollout timeout (default `240`)
