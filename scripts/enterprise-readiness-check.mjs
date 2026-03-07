@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { writeFileSync } from "node:fs";
+
 const parseInteger = (value, fallback) => {
   const parsed = Number.parseInt(value ?? "", 10);
   if (!Number.isInteger(parsed) || parsed <= 0) {
@@ -8,8 +10,21 @@ const parseInteger = (value, fallback) => {
   return parsed;
 };
 
+const argMap = new Map();
+for (let i = 2; i < process.argv.length; i += 1) {
+  const arg = process.argv[i];
+  if (!arg.startsWith("--")) {
+    continue;
+  }
+  const key = arg.slice(2);
+  const value =
+    process.argv[i + 1] && !process.argv[i + 1].startsWith("--") ? process.argv[i + 1] : "true";
+  argMap.set(key, value);
+}
+
 const maxHealthLatencyMs = parseInteger(process.env.READINESS_MAX_HEALTH_LATENCY_MS, 1500);
 const maxAuditLatencyMs = parseInteger(process.env.READINESS_MAX_AUDIT_LATENCY_MS, 2000);
+const outputPath = argMap.get("output") ?? process.env.READINESS_REPORT_OUTPUT;
 
 const targets = [
   {
@@ -164,6 +179,9 @@ const main = async () => {
   };
 
   console.log(JSON.stringify(report, null, 2));
+  if (outputPath) {
+    writeFileSync(outputPath, JSON.stringify(report, null, 2) + "\n", "utf-8");
+  }
   if (!ok) {
     process.exitCode = 1;
   }

@@ -19,6 +19,13 @@ kubectl -n openclaw-local exec deployment/conversation-service-hostpath -- \
   node /workspace/scripts/enterprise-readiness-check.mjs
 ```
 
+Write JSON artifact:
+
+```bash
+kubectl -n openclaw-local exec deployment/conversation-service-hostpath -- \
+  node /workspace/scripts/enterprise-readiness-check.mjs --output /tmp/readiness-report.json
+```
+
 ## What the script verifies
 
 - Health checks for:
@@ -73,6 +80,14 @@ Multiple deployments:
 node scripts/enterprise-resilience-check.mjs --targets orchestration-service,policy-service
 ```
 
+Write JSON artifact:
+
+```bash
+node scripts/enterprise-resilience-check.mjs \
+  --targets orchestration-service,policy-service \
+  --output /tmp/resilience-report.json
+```
+
 What it verifies:
 
 - rollout restart succeeds for the target deployment
@@ -86,3 +101,4 @@ Optional flags:
 - `--targets <a,b,c>` comma-separated list of deployments to restart and verify in sequence
 - `--probe <deployment>` pod used to run readiness script (default `conversation-service-hostpath`)
 - `--timeout <seconds>` rollout timeout (default `240`)
+- `--output <path>` write JSON report artifact for CI persistence

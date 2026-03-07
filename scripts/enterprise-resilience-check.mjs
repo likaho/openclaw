@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from "node:child_process";
+import { writeFileSync } from "node:fs";
 
 const argMap = new Map();
 for (let i = 2; i < process.argv.length; i += 1) {
@@ -29,6 +30,7 @@ const timeoutSeconds = Number.parseInt(
   argMap.get("timeout") ?? process.env.RESILIENCE_ROLLOUT_TIMEOUT_SECONDS ?? "240",
   10,
 );
+const outputPath = argMap.get("output") ?? process.env.RESILIENCE_REPORT_OUTPUT;
 
 const runKubectl = (args, options = {}) => {
   const started = Date.now();
@@ -118,6 +120,9 @@ const main = async () => {
 
     report.ok = report.steps.every((step) => step.ok);
     console.log(JSON.stringify(report, null, 2));
+    if (outputPath) {
+      writeFileSync(outputPath, JSON.stringify(report, null, 2) + "\n", "utf-8");
+    }
     if (!report.ok) {
       process.exitCode = 1;
     }
@@ -129,6 +134,9 @@ const main = async () => {
     });
     report.ok = false;
     console.log(JSON.stringify(report, null, 2));
+    if (outputPath) {
+      writeFileSync(outputPath, JSON.stringify(report, null, 2) + "\n", "utf-8");
+    }
     process.exitCode = 1;
   }
 };
