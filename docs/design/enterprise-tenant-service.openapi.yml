@@ -1,0 +1,192 @@
+openapi: 3.0.3
+info:
+  title: OpenClaw Tenant Service
+  version: 0.1.0
+  description: Tenant and workspace lifecycle service (Milestone 2).
+servers:
+  - url: https://tenant.openclaw.local
+paths:
+  /v1/tenants:
+    post:
+      summary: Create tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTenantRequest"
+      responses:
+        "201":
+          description: Tenant created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+  /v1/tenants/{tenantId}:
+    get:
+      summary: Get tenant
+      parameters:
+        - in: path
+          name: tenantId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Tenant found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        "404":
+          description: Tenant not found
+    put:
+      summary: Update tenant
+      parameters:
+        - in: path
+          name: tenantId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTenantRequest"
+      responses:
+        "200":
+          description: Tenant updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        "404":
+          description: Tenant not found
+  /v1/tenants/{tenantId}/workspaces:
+    post:
+      summary: Create workspace
+      parameters:
+        - in: path
+          name: tenantId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkspaceRequest"
+      responses:
+        "201":
+          description: Workspace created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workspace"
+  /v1/tenants/{tenantId}/workspaces/{workspaceId}:
+    get:
+      summary: Get workspace by tenant scope
+      parameters:
+        - in: path
+          name: tenantId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: workspaceId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Workspace found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workspace"
+        "404":
+          description: Workspace not found
+
+components:
+  schemas:
+    TenantQuota:
+      type: object
+      required:
+        - maxWorkspaces
+        - maxMonthlyMessages
+      properties:
+        maxWorkspaces:
+          type: integer
+        maxMonthlyMessages:
+          type: integer
+    Tenant:
+      type: object
+      required:
+        - id
+        - name
+        - quotas
+        - featureFlags
+        - policies
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        quotas:
+          $ref: "#/components/schemas/TenantQuota"
+        featureFlags:
+          type: array
+          items:
+            type: string
+        policies:
+          type: array
+          items:
+            type: string
+    CreateTenantRequest:
+      allOf:
+        - $ref: "#/components/schemas/Tenant"
+    UpdateTenantRequest:
+      type: object
+      required:
+        - name
+        - quotas
+        - featureFlags
+        - policies
+      properties:
+        name:
+          type: string
+        quotas:
+          $ref: "#/components/schemas/TenantQuota"
+        featureFlags:
+          type: array
+          items:
+            type: string
+        policies:
+          type: array
+          items:
+            type: string
+    CreateWorkspaceRequest:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+    Workspace:
+      type: object
+      required:
+        - id
+        - tenantId
+        - name
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        name:
+          type: string

@@ -1,6 +1,6 @@
 # Local Kubernetes Deployment
 
-This directory contains manifests and values files for local testing with Keycloak and the Identity service.
+This directory contains manifests and values files for local testing with Keycloak, Identity service, and Tenant service.
 
 ## Prerequisites
 
@@ -45,8 +45,17 @@ kind load docker-image openclaw/identity-service:local
 kubectl apply -f deploy/k8s/local/identity-service.yaml
 ```
 
-6. Port forward for local testing:
+6. Build and deploy the Tenant service:
+
+```bash
+docker build -t openclaw/tenant-service:local -f packages/tenant-service/Dockerfile .
+kind load docker-image openclaw/tenant-service:local
+kubectl apply -f deploy/k8s/local/tenant-service.yaml
+```
+
+7. Port forward for local testing:
 
 ```bash
 kubectl -n openclaw-local port-forward svc/identity-service 4001:4001
+kubectl -n openclaw-local port-forward svc/tenant-service 4002:4002
 ```
