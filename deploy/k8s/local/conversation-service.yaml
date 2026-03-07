@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: conversation-service
+  namespace: openclaw-local
+  labels:
+    app: conversation-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: conversation-service
+  template:
+    metadata:
+      labels:
+        app: conversation-service
+    spec:
+      containers:
+        - name: conversation-service
+          image: openclaw/conversation-service:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4008
+          env:
+            - name: PORT
+              value: "4008"
+            - name: CONVERSATION_DEFAULT_RETENTION_DAYS
+              value: "30"
+            - name: CONVERSATION_MAX_RETENTION_DAYS
+              value: "365"
+            - name: PROVIDER_ALLOWED_LIST
+              value: "openai,anthropic"
+            - name: TENANT_PROVIDER_POLICY
+              value: "tenant-a:openai|anthropic;tenant-b:openai"
+            - name: TENANT_PROVIDER_KEY_REFS
+              value: "tenant-a:openai=vault://tenant-a/openai,anthropic=vault://tenant-a/anthropic;tenant-b:openai=vault://tenant-b/openai"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: conversation-service
+  namespace: openclaw-local
+spec:
+  type: ClusterIP
+  selector:
+    app: conversation-service
+  ports:
+    - name: http
+      port: 4008
+      targetPort: 4008

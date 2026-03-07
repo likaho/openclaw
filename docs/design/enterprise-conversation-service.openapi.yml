@@ -1,0 +1,136 @@
+openapi: 3.0.3
+info:
+  title: OpenClaw Enterprise Conversation Service API
+  version: 0.1.0
+servers:
+  - url: http://conversation-service.openclaw-local.svc.cluster.local:4008
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: Service healthy
+  /v1/conversations/memory/entries:
+    post:
+      summary: Save a tenant-scoped memory entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenantId, conversationId, role, content]
+              properties:
+                tenantId:
+                  type: string
+                conversationId:
+                  type: string
+                role:
+                  type: string
+                  enum: [system, user, assistant]
+                content:
+                  type: string
+                retentionDays:
+                  type: integer
+      responses:
+        "201":
+          description: Memory entry created
+        "400":
+          description: Invalid payload
+  /v1/conversations/memory/{tenantId}/{conversationId}:
+    get:
+      summary: List non-expired memory entries
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Memory entries listed
+  /v1/providers/proxy:
+    post:
+      summary: Provider proxy with tenant policy checks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenantId, provider, model, prompt]
+              properties:
+                tenantId:
+                  type: string
+                provider:
+                  type: string
+                model:
+                  type: string
+                prompt:
+                  type: string
+                correlationId:
+                  type: string
+      responses:
+        "200":
+          description: Simulated provider completion
+        "403":
+          description: Provider not allowed or key ref missing
+  /v1/audit/events:
+    post:
+      summary: Append immutable audit event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenantId, eventType, actor, payload]
+              properties:
+                tenantId:
+                  type: string
+                eventType:
+                  type: string
+                actor:
+                  type: string
+                payload:
+                  type: object
+      responses:
+        "201":
+          description: Event appended
+  /v1/audit/events/{tenantId}:
+    get:
+      summary: List tenant audit events
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Audit events listed
+  /v1/audit/verify/{tenantId}:
+    get:
+      summary: Verify hash-chain integrity
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Audit chain valid
+        "409":
+          description: Audit chain invalid
