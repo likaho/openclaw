@@ -67,6 +67,12 @@ Run from your operator shell:
 node scripts/enterprise-resilience-check.mjs --target orchestration-service
 ```
 
+Multiple deployments:
+
+```bash
+node scripts/enterprise-resilience-check.mjs --targets orchestration-service,policy-service
+```
+
 What it verifies:
 
 - rollout restart succeeds for the target deployment
@@ -77,5 +83,6 @@ Optional flags:
 
 - `--namespace <name>` (default `openclaw-local`)
 - `--target <deployment>` (default `orchestration-service`)
+- `--targets <a,b,c>` comma-separated list of deployments to restart and verify in sequence
 - `--probe <deployment>` pod used to run readiness script (default `conversation-service-hostpath`)
 - `--timeout <seconds>` rollout timeout (default `240`)

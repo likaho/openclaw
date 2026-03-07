@@ -17,6 +17,12 @@ for (let i = 2; i < process.argv.length; i += 1) {
 const namespace = argMap.get("namespace") ?? process.env.OPENCLAW_NAMESPACE ?? "openclaw-local";
 const targetDeployment =
   argMap.get("target") ?? process.env.RESILIENCE_TARGET_DEPLOYMENT ?? "orchestration-service";
+const targetDeploymentsRaw =
+  argMap.get("targets") ?? process.env.RESILIENCE_TARGET_DEPLOYMENTS ?? targetDeployment;
+const targetDeployments = targetDeploymentsRaw
+  .split(",")
+  .map((entry) => entry.trim())
+  .filter((entry) => entry.length > 0);
 const probeDeployment =
   argMap.get("probe") ?? process.env.RESILIENCE_PROBE_DEPLOYMENT ?? "conversation-service-hostpath";
 const timeoutSeconds = Number.parseInt(
@@ -38,10 +44,16 @@ const runKubectl = (args, options = {}) => {
 };
 
 const main = async () => {
+  if (targetDeployments.length === 0) {
+    console.error("No target deployments provided. Use --target or --targets.");
+    process.exitCode = 1;
+    return;
+  }
+
   const report = {
     checkedAt: new Date().toISOString(),
     namespace,
-    targetDeployment,
+    targetDeployments,
     probeDeployment,
     timeoutSeconds,
     steps: [],
@@ -49,37 +61,41 @@ const main = async () => {
   };
 
   try {
-    const restart = runKubectl([
-      "-n",
-      namespace,
-      "rollout",
-      "restart",
-      `deployment/${targetDeployment}`,
-    ]);
-    report.steps.push({
-      name: "rollout_restart",
-      ok: true,
-      elapsedMs: restart.elapsedMs,
-      output: restart.output,
-    });
-
-    const status = runKubectl(
-      [
+    for (const deploymentName of targetDeployments) {
+      const restart = runKubectl([
         "-n",
         namespace,
         "rollout",
-        "status",
-        `deployment/${targetDeployment}`,
-        `--timeout=${timeoutSeconds}s`,
-      ],
-      { maxBuffer: 10 * 1024 * 1024 },
-    );
-    report.steps.push({
-      name: "rollout_status",
-      ok: true,
-      elapsedMs: status.elapsedMs,
-      output: status.output,
-    });
+        "restart",
+        `deployment/${deploymentName}`,
+      ]);
+      report.steps.push({
+        name: "rollout_restart",
+        target: deploymentName,
+        ok: true,
+        elapsedMs: restart.elapsedMs,
+        output: restart.output,
+      });
+
+      const status = runKubectl(
+        [
+          "-n",
+          namespace,
+          "rollout",
+          "status",
+          `deployment/${deploymentName}`,
+          `--timeout=${timeoutSeconds}s`,
+        ],
+        { maxBuffer: 10 * 1024 * 1024 },
+      );
+      report.steps.push({
+        name: "rollout_status",
+        target: deploymentName,
+        ok: true,
+        elapsedMs: status.elapsedMs,
+        output: status.output,
+      });
+    }
 
     const readiness = runKubectl([
       "-n",
@@ -94,6 +110,7 @@ const main = async () => {
     const readinessReport = JSON.parse(readiness.output);
     report.steps.push({
       name: "post_restart_readiness",
+      target: targetDeployments.join(","),
       ok: readinessReport.ok === true,
       elapsedMs: readiness.elapsedMs,
       readiness: readinessReport,
