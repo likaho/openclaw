@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orchestration-service
+  namespace: openclaw-local
+  labels:
+    app: orchestration-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orchestration-service
+  template:
+    metadata:
+      labels:
+        app: orchestration-service
+    spec:
+      containers:
+        - name: orchestration-service
+          image: openclaw/orchestration-service:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4005
+          env:
+            - name: PORT
+              value: "4005"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orchestration-service
+  namespace: openclaw-local
+spec:
+  type: ClusterIP
+  selector:
+    app: orchestration-service
+  ports:
+    - name: http
+      port: 4005
+      targetPort: 4005

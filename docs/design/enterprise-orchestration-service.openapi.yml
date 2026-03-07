@@ -1,0 +1,122 @@
+openapi: 3.0.3
+info:
+  title: OpenClaw Orchestration Service
+  version: 0.1.0
+  description: Workflow orchestration service (Milestone 5).
+servers:
+  - url: https://orchestration.openclaw.local
+paths:
+  /v1/orchestration/workflows:
+    post:
+      summary: Create workflow (idempotent by tenant + dedupe key)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWorkflowRequest"
+      responses:
+        "201":
+          description: Workflow created
+        "200":
+          description: Existing workflow returned due to dedupe hit
+    get:
+      summary: List workflows
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Workflow list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  workflows:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Workflow"
+  /v1/orchestration/workflows/{workflowId}/transition:
+    post:
+      summary: Transition workflow state
+      parameters:
+        - in: path
+          name: workflowId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransitionRequest"
+      responses:
+        "200":
+          description: Workflow transitioned
+        "404":
+          description: Workflow not found
+
+components:
+  schemas:
+    CreateWorkflowRequest:
+      type: object
+      required:
+        - tenantId
+        - dedupeKey
+        - correlationId
+      properties:
+        tenantId:
+          type: string
+        dedupeKey:
+          type: string
+        correlationId:
+          type: string
+        maxAttempts:
+          type: integer
+    TransitionRequest:
+      type: object
+      required:
+        - event
+      properties:
+        event:
+          type: string
+          enum: [start, success, failure]
+    Workflow:
+      type: object
+      required:
+        - id
+        - tenantId
+        - dedupeKey
+        - correlationId
+        - status
+        - maxAttempts
+        - attempt
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        dedupeKey:
+          type: string
+        correlationId:
+          type: string
+        status:
+          type: string
+          enum: [queued, running, retrying, succeeded, failed]
+        maxAttempts:
+          type: integer
+        attempt:
+          type: integer
+        nextRetryAt:
+          type: string
+        error:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
