@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: identity-service
+  namespace: openclaw-local
+  labels:
+    app: identity-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: identity-service
+  template:
+    metadata:
+      labels:
+        app: identity-service
+    spec:
+      containers:
+        - name: identity-service
+          image: openclaw/identity-service:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4001
+          env:
+            - name: PORT
+              value: "4001"
+            - name: OIDC_ISSUER_URL
+              value: "http://openclaw-keycloak.openclaw-local.svc.cluster.local/realms/openclaw"
+            - name: OIDC_CLIENT_ID
+              value: "openclaw-identity"
+            - name: OIDC_CLIENT_SECRET
+              value: "change-me"
+            - name: OIDC_REDIRECT_URI
+              value: "http://localhost:4001/v1/auth/callback"
+            - name: JWT_SECRET
+              value: "local-dev-secret"
+            - name: JWT_ISSUER
+              value: "openclaw-identity"
+            - name: JWT_AUDIENCE
+              value: "openclaw-api"
+            - name: TENANT_DEFAULT_ID
+              value: "default"
+            - name: TENANT_DEFAULT_WORKSPACE_ID
+              value: "default"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: identity-service
+  namespace: openclaw-local
+spec:
+  type: ClusterIP
+  selector:
+    app: identity-service
+  ports:
+    - name: http
+      port: 4001
+      targetPort: 4001

@@ -1,0 +1,147 @@
+openapi: 3.0.3
+info:
+  title: OpenClaw Identity Service
+  version: 0.1.0
+  description: Tenant-aware Identity and SSO service (Milestone 1).
+servers:
+  - url: https://identity.openclaw.local
+paths:
+  /v1/auth/login:
+    post:
+      summary: Begin OIDC login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login redirect URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+
+  /v1/auth/callback:
+    get:
+      summary: OIDC callback endpoint
+      parameters:
+        - in: query
+          name: code
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: state
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Authenticated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+
+  /v1/auth/refresh:
+    post:
+      summary: Refresh tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: Refreshed session tokens
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+
+  /v1/auth/logout:
+    post:
+      summary: Logout and revoke refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogoutRequest"
+      responses:
+        "204":
+          description: Logged out
+
+components:
+  schemas:
+    LoginRequest:
+      type: object
+      required:
+        - tenantHint
+        - redirectUri
+      properties:
+        tenantHint:
+          type: string
+          description: Tenant identifier or domain hint.
+        redirectUri:
+          type: string
+          description: Client redirect URI after login.
+    LoginResponse:
+      type: object
+      required:
+        - redirectUrl
+      properties:
+        redirectUrl:
+          type: string
+          description: OIDC redirect URL.
+        tenantHint:
+          type: string
+          description: Echoed tenant hint for debugging.
+    RefreshRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+    LogoutRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+    AuthSession:
+      type: object
+      required:
+        - accessToken
+        - refreshToken
+        - expiresIn
+        - tenantId
+        - workspaceId
+        - subject
+        - roles
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+        tenantId:
+          type: string
+        workspaceId:
+          type: string
+        subject:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        entitlements:
+          type: array
+          items:
+            type: string

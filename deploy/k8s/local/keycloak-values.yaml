@@ -1,0 +1,10 @@
+auth:
+  adminUser: admin
+  adminPassword: admin
+
+production: false
+
+service:
+  type: ClusterIP
+
+proxyHeaders: xforwarded
