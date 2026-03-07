@@ -1,6 +1,6 @@
 # Local Kubernetes Deployment
 
-This directory contains manifests and values files for local testing with Keycloak, Identity service, Tenant service, Policy service, Channel Ingress service, Orchestration service, Skill Control service, and Skill Runtime service.
+This directory contains manifests and values files for local testing with Keycloak, Identity service, Tenant service, Policy service, Channel Ingress service, Orchestration service, Skill Control service, Skill Runtime service, Onboarding service, and Enterprise Portal.
 
 ## Prerequisites
 
@@ -65,6 +65,7 @@ kubectl -n openclaw-local port-forward svc/skill-control-service 4006:4006
 kubectl -n openclaw-local port-forward svc/skill-runtime-service 4007:4007
 kubectl -n openclaw-local port-forward svc/conversation-service 4008:4008
 kubectl -n openclaw-local port-forward svc/onboarding-service 4010:4010
+kubectl -n openclaw-local port-forward svc/enterprise-portal 4020:4020
 ```
 
 8. Build and deploy the Policy service:
@@ -122,3 +123,21 @@ docker build -t openclaw/onboarding-service:local -f packages/onboarding-service
 kind load docker-image openclaw/onboarding-service:local
 kubectl apply -f deploy/k8s/local/onboarding-service.yaml
 ```
+
+15. Build and deploy the Enterprise Portal:
+
+```bash
+docker build -t openclaw/enterprise-portal:local -f packages/enterprise-portal/Dockerfile .
+kind load docker-image openclaw/enterprise-portal:local
+kubectl apply -f deploy/k8s/local/enterprise-portal.yaml
+```
+
+16. Deploy Enterprise Portal using kubectl-only hostPath mode (for non-kind local clusters):
+
+```bash
+kubectl apply -f deploy/k8s/local/enterprise-portal-hostpath.yaml
+kubectl -n openclaw-local rollout status deployment/enterprise-portal-hostpath --timeout=240s
+kubectl -n openclaw-local port-forward svc/enterprise-portal-hostpath 18788:4020
+```
+
+Open `http://localhost:18788/` for the browser onboarding portal.

@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: enterprise-portal-hostpath
+  namespace: openclaw-local
+  labels:
+    app: enterprise-portal-hostpath
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: enterprise-portal-hostpath
+  template:
+    metadata:
+      labels:
+        app: enterprise-portal-hostpath
+    spec:
+      containers:
+        - name: enterprise-portal
+          image: node:22-slim
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-lc"]
+          args:
+            - |
+              set -e
+              corepack enable
+              cd /workspace
+              pnpm --filter @openclaw/enterprise-portal start
+          ports:
+            - containerPort: 4020
+          env:
+            - name: PORT
+              value: "4020"
+            - name: ONBOARDING_BASE_URL
+              value: "http://onboarding-service-hostpath:4010"
+            - name: IDENTITY_BASE_URL
+              value: "http://identity-service:4001"
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+      volumes:
+        - name: workspace
+          hostPath:
+            path: /home/lik/projects/openclaw
+            type: Directory
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: enterprise-portal-hostpath
+  namespace: openclaw-local
+spec:
+  selector:
+    app: enterprise-portal-hostpath
+  ports:
+    - name: http
+      port: 4020
+      targetPort: 4020

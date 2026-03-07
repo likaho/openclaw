@@ -27,6 +27,15 @@
 
 - Add UX service deployments, ingress routes, and credential-broker trust boundaries.
 
+```mermaid
+flowchart LR
+  Browser[User Browser] --> PortalSvc[enterprise-portal-hostpath:4020]
+  PortalSvc --> OnboardingSvc[onboarding-service-hostpath:4010]
+  PortalSvc --> IdentitySvc[identity-service:4001]
+  OnboardingSvc --> TenantSvc[tenant-service:4002]
+  OnboardingSvc --> PolicySvc[policy-service:4003]
+```
+
 ### D. UX Sequence Diagrams
 
 - Self-serve signup -> verify -> login -> bootstrap
@@ -338,6 +347,27 @@
 - a11y component tests + recovery logic
 
 **Local K8s deploy**
+
+### Milestone 17 — Enterprise Web Portal Delivery (browser onboarding)
+
+**Build**
+
+- deployable portal web app + API proxy for onboarding and identity flows
+- browser pages for signup/login/invite/bootstrap/channels/skills
+- callback handling for OIDC login return path
+
+**Unit tests**
+
+- proxy route mapping and request forwarding behavior
+
+**Local K8s deploy**
+
+- `enterprise-portal-hostpath` deployment + service
+- browser access via `kubectl port-forward svc/enterprise-portal-hostpath`
+
+**Sign-off gate**
+
+- non-technical user can complete end-to-end onboarding flow in browser without CLI
 
 - full stack deploy + readiness/resilience + E2E smoke
 

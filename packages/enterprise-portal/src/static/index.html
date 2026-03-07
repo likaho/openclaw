@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenClaw Enterprise Portal</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <section class="hero">
+        <h1>OpenClaw Enterprise Onboarding Portal</h1>
+        <p>Complete signup, login, account bootstrap, channel setup, and skill install in one flow.</p>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <h2>1) Sign up</h2>
+          <label>Email <input id="signupEmail" placeholder="alice@example.com" /></label>
+          <label>Display name <input id="signupName" placeholder="Alice" /></label>
+          <button id="signupBtn">Create account</button>
+          <div id="signupStatus" class="status warn">No user created yet.</div>
+        </article>
+
+        <article class="panel">
+          <h2>2) Login (OIDC)</h2>
+          <label>Tenant hint (optional) <input id="tenantHint" placeholder="tenant-a" /></label>
+          <button id="loginBtn">Start login</button>
+          <button id="refreshBtn" class="secondary">Refresh session</button>
+          <button id="logoutBtn" class="secondary">Logout</button>
+          <div id="loginStatus" class="status warn">No session yet.</div>
+        </article>
+
+        <article class="panel">
+          <h2>3) Accept invite (optional path)</h2>
+          <label>Invite token <input id="inviteToken" placeholder="paste invite token" /></label>
+          <label>Email <input id="inviteEmail" placeholder="invitee@example.com" /></label>
+          <label>Display name <input id="inviteName" placeholder="Invitee" /></label>
+          <button id="inviteBtn">Accept invite</button>
+          <div id="inviteStatus" class="status warn">Invite flow not started.</div>
+        </article>
+
+        <article class="panel">
+          <h2>4) Account bootstrap</h2>
+          <label>User ID <input id="bootstrapUserId" placeholder="autofilled after signup" /></label>
+          <label>Tenant ID <input id="tenantId" placeholder="tenant-demo" /></label>
+          <label>Workspace ID <input id="workspaceId" placeholder="default" /></label>
+          <label
+            >Profile
+            <select id="profile">
+              <option value="starter">starter</option>
+              <option value="regulated">regulated</option>
+            </select>
+          </label>
+          <button id="bootstrapBtn">Bootstrap account</button>
+          <button id="completeSetupBtn" class="secondary">Mark setup complete</button>
+          <div id="bootstrapStatus" class="status warn">Bootstrap pending.</div>
+        </article>
+
+        <article class="panel">
+          <h2>5) Connect channels</h2>
+          <button id="loadChannelsBtn">Load channel catalog</button>
+          <label
+            >Channel
+            <select id="channelId"></select>
+          </label>
+          <label>User ID <input id="channelUserId" placeholder="autofilled after signup" /></label>
+          <label>Account label <input id="accountLabel" placeholder="alice-main" /></label>
+          <button id="connectChannelBtn">Create connection</button>
+          <label>Connection ID <input id="connectionId" placeholder="connection id from create" /></label>
+          <button id="verifyChannelBtn">Verify connection</button>
+          <div id="channelsStatus" class="status warn">Channel provisioning pending.</div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>channel</th>
+                <th>auth</th>
+                <th>setup</th>
+              </tr>
+            </thead>
+            <tbody id="channelsTable"></tbody>
+          </table>
+        </article>
+
+        <article class="panel">
+          <h2>6) Install and configure skills</h2>
+          <button id="loadSkillsBtn">Load skills catalog</button>
+          <label
+            >Skill
+            <select id="skillKey"></select>
+          </label>
+          <label>User ID <input id="skillsUserId" placeholder="autofilled after signup" /></label>
+          <button id="installSkillBtn">Install skill</button>
+          <label>Configure key <input id="configSkillKey" placeholder="calendar" /></label>
+          <label
+            >Env (<code>KEY=VALUE</code> per line)
+            <textarea id="envPairs" placeholder="TZ=UTC"></textarea>
+          </label>
+          <button id="configureSkillBtn">Save skill config</button>
+          <div id="skillsStatus" class="status warn">Skill setup pending.</div>
+          <table class="table">
+            <thead>
+              <tr>
+                <th>skill</th>
+                <th>source</th>
+                <th>missing requirements</th>
+              </tr>
+            </thead>
+            <tbody id="skillsTable"></tbody>
+          </table>
+        </article>
+      </section>
+    </main>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

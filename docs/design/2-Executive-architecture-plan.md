@@ -61,6 +61,19 @@ This extends the existing enterprise mode from backend microservices into a full
 
 - In-channel guided setup UX for WhatsApp/Telegram/Slack and compatible behavior for other channels.
 
+### Implemented local delivery (March 7, 2026)
+
+- Added a deployable **Enterprise Portal** service (`@openclaw/enterprise-portal`) with browser pages for:
+  - signup
+  - invite acceptance
+  - OIDC login/callback + refresh/logout
+  - bootstrap wizard actions
+  - channel provisioning actions
+  - skills install/configure actions
+- Portal runs in local Kubernetes as `enterprise-portal-hostpath` and proxies to:
+  - `onboarding-service-hostpath:4010`
+  - `identity-service:4001`
+
 ---
 
 ## C) Security model updates for UX

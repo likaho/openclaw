@@ -1,0 +1,160 @@
+:root {
+  color-scheme: light;
+  --bg: #f4f6fb;
+  --card: #ffffff;
+  --ink: #0f172a;
+  --muted: #475569;
+  --brand: #0f766e;
+  --brand-2: #0ea5e9;
+  --border: #dbe3ee;
+  --ok: #065f46;
+  --warn: #92400e;
+  --bad: #b91c1c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at 20% -10%, rgba(14, 165, 233, 0.15), transparent 36%),
+    radial-gradient(circle at 100% 0%, rgba(15, 118, 110, 0.14), transparent 28%),
+    var(--bg);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+}
+
+.layout {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.hero {
+  background: linear-gradient(120deg, #083344, #164e63 45%, #0e7490);
+  color: #e0f2fe;
+  border-radius: 16px;
+  padding: 18px 20px;
+  box-shadow: 0 10px 26px rgba(8, 51, 68, 0.28);
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.hero p {
+  margin: 8px 0 0;
+  color: #bae6fd;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+}
+
+.panel h2 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+}
+
+label {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.95rem;
+  background: #fff;
+}
+
+textarea {
+  min-height: 64px;
+}
+
+button {
+  margin-top: 10px;
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(90deg, var(--brand), var(--brand-2));
+  cursor: pointer;
+}
+
+button.secondary {
+  background: #334155;
+}
+
+.status {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  border: 1px solid var(--border);
+}
+
+.status.ok {
+  color: var(--ok);
+  background: #ecfdf5;
+}
+
+.status.warn {
+  color: var(--warn);
+  background: #fffbeb;
+}
+
+.status.bad {
+  color: var(--bad);
+  background: #fef2f2;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: 0.86rem;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 7px 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.table th {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+code {
+  background: #e2e8f0;
+  border-radius: 6px;
+  padding: 1px 5px;
+  font-size: 0.85em;
+}

@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: enterprise-portal
+  namespace: openclaw-local
+  labels:
+    app: enterprise-portal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: enterprise-portal
+  template:
+    metadata:
+      labels:
+        app: enterprise-portal
+    spec:
+      containers:
+        - name: enterprise-portal
+          image: openclaw/enterprise-portal:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4020
+          env:
+            - name: PORT
+              value: "4020"
+            - name: ONBOARDING_BASE_URL
+              value: "http://onboarding-service:4010"
+            - name: IDENTITY_BASE_URL
+              value: "http://identity-service:4001"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: enterprise-portal
+  namespace: openclaw-local
+spec:
+  type: ClusterIP
+  selector:
+    app: enterprise-portal
+  ports:
+    - name: http
+      port: 4020
+      targetPort: 4020

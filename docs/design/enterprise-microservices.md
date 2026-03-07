@@ -334,6 +334,22 @@ sequenceDiagram
   Assistant-->>User: First successful response
 ```
 
+## Local Kubernetes implementation (Milestone 17)
+
+```mermaid
+flowchart LR
+  Browser[http://localhost:18788] --> PortForward[kubectl port-forward]
+  PortForward --> Portal[enterprise-portal-hostpath svc:4020]
+  Portal --> Onboarding[onboarding-service-hostpath svc:4010]
+  Portal --> Identity[identity-service svc:4001]
+  Onboarding --> Tenant[tenant-service]
+  Onboarding --> Policy[policy-service]
+```
+
+- Portal is now implemented as `@openclaw/enterprise-portal`.
+- The portal provides browser pages for signup, invite accept, login/callback, bootstrap, channels, and skills.
+- The portal backend proxies UX API calls to onboarding + identity services inside cluster.
+
 ## Milestones & Sign-off Gates (including UX expansion)
 
 ### Milestones 0-9
@@ -381,3 +397,9 @@ Completed secure microservice modernization milestones and readiness hardening.
 - A11y pass, failure-recovery UX, full E2E readiness integration.
 - **Unit tests**: accessibility and recovery logic.
 - **Sign-off**: enterprise UX go/no-go.
+
+### Milestone 17 — Enterprise Web Portal Delivery
+
+- Implement browser-first portal UX and in-cluster deployment wiring.
+- **Unit tests**: portal proxy mapping + forwarding.
+- **Sign-off**: end-to-end browser onboarding flow runs in local Kubernetes.
