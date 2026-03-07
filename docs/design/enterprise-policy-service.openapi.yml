@@ -1,0 +1,132 @@
+openapi: 3.0.3
+info:
+  title: OpenClaw Policy Service
+  version: 0.1.0
+  description: Centralized authorization decision service (Milestone 3).
+servers:
+  - url: https://policy.openclaw.local
+paths:
+  /v1/policy/tenants:
+    post:
+      summary: Create or update tenant policy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantPolicy"
+      responses:
+        "201":
+          description: Tenant policy stored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantPolicy"
+  /v1/policy/tenants/{tenantId}:
+    get:
+      summary: Get tenant policy
+      parameters:
+        - in: path
+          name: tenantId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Tenant policy found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantPolicy"
+        "404":
+          description: Tenant policy not found
+  /v1/policy/decide:
+    post:
+      summary: Evaluate authorization decision
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecisionRequest"
+      responses:
+        "200":
+          description: Authorization decision
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DecisionResponse"
+
+components:
+  schemas:
+    TenantPolicy:
+      type: object
+      required:
+        - tenantId
+        - rolePermissions
+        - actionEntitlements
+      properties:
+        tenantId:
+          type: string
+        rolePermissions:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+        actionEntitlements:
+          type: object
+          additionalProperties:
+            type: string
+    Subject:
+      type: object
+      required:
+        - tenantId
+        - roles
+      properties:
+        tenantId:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        entitlements:
+          type: array
+          items:
+            type: string
+    Resource:
+      type: object
+      required:
+        - tenantId
+        - type
+      properties:
+        tenantId:
+          type: string
+        type:
+          type: string
+    DecisionRequest:
+      type: object
+      required:
+        - tenantId
+        - subject
+        - resource
+        - action
+      properties:
+        tenantId:
+          type: string
+        subject:
+          $ref: "#/components/schemas/Subject"
+        resource:
+          $ref: "#/components/schemas/Resource"
+        action:
+          type: string
+    DecisionResponse:
+      type: object
+      required:
+        - allow
+        - reason
+      properties:
+        allow:
+          type: boolean
+        reason:
+          type: string
