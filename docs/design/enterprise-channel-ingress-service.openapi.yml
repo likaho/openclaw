@@ -1,0 +1,137 @@
+openapi: 3.0.3
+info:
+  title: OpenClaw Channel Ingress Service
+  version: 0.1.0
+  description: Channel webhook ingress and normalization service (Milestone 4).
+servers:
+  - url: https://ingress.openclaw.local
+paths:
+  /v1/ingress/slack/events:
+    post:
+      summary: Ingest Slack event payload
+      parameters:
+        - in: header
+          name: x-openclaw-ingress-key
+          required: false
+          schema:
+            type: string
+          description: Optional ingress key when ingress auth is enabled.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SlackEventPayload"
+      responses:
+        "202":
+          description: Event accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngressAcceptedResponse"
+        "200":
+          description: Duplicate event ignored
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngressDuplicateResponse"
+        "400":
+          description: Unsupported or invalid payload
+        "401":
+          description: Unauthorized ingress request
+  /v1/ingress/events:
+    get:
+      summary: List recent normalized events
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Recent normalized events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/NormalizedEvent"
+
+components:
+  schemas:
+    SlackEventPayload:
+      type: object
+      properties:
+        team_id:
+          type: string
+        event_id:
+          type: string
+        event_time:
+          type: integer
+        event:
+          type: object
+          properties:
+            type:
+              type: string
+            user:
+              type: string
+            channel:
+              type: string
+            text:
+              type: string
+            ts:
+              type: string
+    NormalizedEvent:
+      type: object
+      required:
+        - id
+        - channel
+        - tenantHint
+        - actorId
+        - roomId
+        - messageText
+        - sourceTimestamp
+        - receivedAt
+      properties:
+        id:
+          type: string
+        channel:
+          type: string
+        tenantHint:
+          type: string
+        actorId:
+          type: string
+        roomId:
+          type: string
+        messageText:
+          type: string
+        sourceTimestamp:
+          type: string
+        receivedAt:
+          type: string
+    IngressAcceptedResponse:
+      type: object
+      required:
+        - status
+        - id
+      properties:
+        status:
+          type: string
+          example: accepted
+        id:
+          type: string
+    IngressDuplicateResponse:
+      type: object
+      required:
+        - status
+        - id
+      properties:
+        status:
+          type: string
+          example: duplicate_ignored
+        id:
+          type: string

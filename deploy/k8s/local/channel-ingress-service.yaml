@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: channel-ingress-service
+  namespace: openclaw-local
+  labels:
+    app: channel-ingress-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: channel-ingress-service
+  template:
+    metadata:
+      labels:
+        app: channel-ingress-service
+    spec:
+      containers:
+        - name: channel-ingress-service
+          image: openclaw/channel-ingress-service:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4004
+          env:
+            - name: PORT
+              value: "4004"
+            - name: INGRESS_API_KEY
+              value: "local-ingress-key"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: channel-ingress-service
+  namespace: openclaw-local
+spec:
+  type: ClusterIP
+  selector:
+    app: channel-ingress-service
+  ports:
+    - name: http
+      port: 4004
+      targetPort: 4004

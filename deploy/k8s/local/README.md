@@ -1,6 +1,6 @@
 # Local Kubernetes Deployment
 
-This directory contains manifests and values files for local testing with Keycloak, Identity service, Tenant service, and Policy service.
+This directory contains manifests and values files for local testing with Keycloak, Identity service, Tenant service, Policy service, and Channel Ingress service.
 
 ## Prerequisites
 
@@ -59,6 +59,7 @@ kubectl apply -f deploy/k8s/local/tenant-service.yaml
 kubectl -n openclaw-local port-forward svc/identity-service 4001:4001
 kubectl -n openclaw-local port-forward svc/tenant-service 4002:4002
 kubectl -n openclaw-local port-forward svc/policy-service 4003:4003
+kubectl -n openclaw-local port-forward svc/channel-ingress-service 4004:4004
 ```
 
 8. Build and deploy the Policy service:
@@ -67,4 +68,12 @@ kubectl -n openclaw-local port-forward svc/policy-service 4003:4003
 docker build -t openclaw/policy-service:local -f packages/policy-service/Dockerfile .
 kind load docker-image openclaw/policy-service:local
 kubectl apply -f deploy/k8s/local/policy-service.yaml
+```
+
+9. Build and deploy the Channel Ingress service:
+
+```bash
+docker build -t openclaw/channel-ingress-service:local -f packages/channel-ingress-service/Dockerfile .
+kind load docker-image openclaw/channel-ingress-service:local
+kubectl apply -f deploy/k8s/local/channel-ingress-service.yaml
 ```
