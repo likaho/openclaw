@@ -14,6 +14,7 @@ This document defines the Milestone 1 Identity and SSO service, including the op
 We will use **Keycloak** as the open-source OIDC provider for Milestone 1.
 
 Reasons:
+
 - Enterprise friendly OIDC + SAML support
 - Admin UI for tenant IdP setup and mapping
 - Mature Helm chart for local Kubernetes
@@ -38,13 +39,14 @@ Reasons:
   - `tenant_id`
   - `workspace_id`
   - `subject`
+  - `roles`
+  - `entitlements`
   - `idp_issuer`
-  - `idp_session_id`
+  - `idp_subject`
   - `created_at`
   - `expires_at`
 
 - `identity_refresh_tokens`
-  - `id`
   - `session_id`
   - `token_hash`
   - `expires_at`
@@ -52,6 +54,7 @@ Reasons:
 ## Key Flows
 
 ### Login flow
+
 1. Client calls `/v1/auth/login` with tenant hint
 2. Identity service redirects to Keycloak
 3. Keycloak returns an auth code to `/v1/auth/callback`
@@ -59,12 +62,14 @@ Reasons:
 5. Identity service issues JWT + refresh token
 
 ### Refresh flow
+
 1. Client calls `/v1/auth/refresh` with refresh token
 2. Identity service validates token, rotates, issues new JWT
 
 ### Logout flow
+
 1. Client calls `/v1/auth/logout`
-2. Identity service revokes refresh token and ends session
+2. Identity service revokes the provided refresh token
 
 ## Unit Test Scope
 

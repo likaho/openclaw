@@ -79,9 +79,6 @@ components:
   schemas:
     LoginRequest:
       type: object
-      required:
-        - tenantHint
-        - redirectUri
       properties:
         tenantHint:
           type: string
@@ -114,6 +111,7 @@ components:
       properties:
         refreshToken:
           type: string
+          description: The refresh token to revoke.
     AuthSession:
       type: object
       required:

@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { SignJWT, jwtVerify } from "jose";
 
 export type TokenClaims = {
@@ -62,6 +63,7 @@ const buildToken = async (
     .setIssuer(config.issuer)
     .setAudience(config.audience)
     .setSubject(claims.subject)
+    .setJti(crypto.randomUUID())
     .setExpirationTime(expiresIn)
     .sign(toSecret(config.secret));
 };

@@ -6,6 +6,8 @@ import {
   createInMemorySessionStore,
   createInMemoryStateStore,
   hashToken,
+  type SessionStore,
+  type StateStore,
 } from "../store.js";
 import { resolveTenantFromClaims } from "../tenant.js";
 import {
@@ -44,6 +46,20 @@ const buildLoginUrl = (config: IdentityConfig, state: string, redirectUri: strin
 
 const refreshTtlMs = 7 * 24 * 60 * 60 * 1000;
 
+export type AuthRouterDeps = {
+  sessionStore?: SessionStore;
+  stateStore?: StateStore;
+  exchangeCodeForTokensFn?: typeof exchangeCodeForTokens;
+  verifyIdTokenFn?: typeof verifyIdToken;
+};
+
+type ResolvedAuthDeps = {
+  sessionStore: SessionStore;
+  stateStore: StateStore;
+  exchangeCodeForTokensFn: typeof exchangeCodeForTokens;
+  verifyIdTokenFn: typeof verifyIdToken;
+};
+
 const buildSession = async (
   claims: Omit<TokenClaims, "tokenUse">,
   config: IdentityConfig,
@@ -63,21 +79,38 @@ const buildSession = async (
   };
 };
 
-export const createAuthRouter = (config: IdentityConfig): Router => {
-  const router = createRouter();
-  const sessionStore = createInMemorySessionStore();
-  const stateStore = createInMemoryStateStore();
+const resolveAuthDeps = (deps: AuthRouterDeps): ResolvedAuthDeps => {
+  const sessionStore = deps.sessionStore ?? createInMemorySessionStore();
+  const stateStore = deps.stateStore ?? createInMemoryStateStore();
+  const exchangeCodeForTokensFn = deps.exchangeCodeForTokensFn ?? exchangeCodeForTokens;
+  const verifyIdTokenFn = deps.verifyIdTokenFn ?? verifyIdToken;
+  return { sessionStore, stateStore, exchangeCodeForTokensFn, verifyIdTokenFn };
+};
 
-  router.post("/login", json(), (req: Request, res: Response) => {
+export type AuthHandlers = {
+  login: (req: Request, res: Response) => void;
+  callback: (req: Request, res: Response) => Promise<void>;
+  refresh: (req: Request, res: Response) => Promise<void>;
+  logout: (req: Request, res: Response) => Promise<void>;
+};
+
+export const createAuthHandlers = (
+  config: IdentityConfig,
+  deps: AuthRouterDeps = {},
+): AuthHandlers => {
+  const { sessionStore, stateStore, exchangeCodeForTokensFn, verifyIdTokenFn } =
+    resolveAuthDeps(deps);
+
+  const login = (req: Request, res: Response): void => {
     const tenantHint = typeof req.body?.tenantHint === "string" ? req.body.tenantHint : undefined;
     const redirectUri =
       typeof req.body?.redirectUri === "string" ? req.body.redirectUri : config.oidcRedirectUri;
     const stateRecord = stateStore.createState({ tenantHint, redirectUri });
     const redirectUrl = buildLoginUrl(config, stateRecord.state, redirectUri);
     res.status(200).json({ redirectUrl, tenantHint });
-  });
+  };
 
-  router.get("/callback", async (req: Request, res: Response) => {
+  const callback = async (req: Request, res: Response): Promise<void> => {
     const code = typeof req.query.code === "string" ? req.query.code : undefined;
     const state = typeof req.query.state === "string" ? req.query.state : undefined;
     if (!code) {
@@ -96,8 +129,8 @@ export const createAuthRouter = (config: IdentityConfig): Router => {
     }
 
     try {
-      const tokenResponse = await exchangeCodeForTokens(config, code, stateRecord.redirectUri);
-      const oidcClaims = await verifyIdToken(config, tokenResponse.id_token);
+      const tokenResponse = await exchangeCodeForTokensFn(config, code, stateRecord.redirectUri);
+      const oidcClaims = await verifyIdTokenFn(config, tokenResponse.id_token);
       const tenantResolution = resolveTenantFromClaims(oidcClaims, config);
       const baseClaims: Omit<TokenClaims, "tokenUse"> = {
         tenantId: tenantResolution.tenantId,
@@ -107,7 +140,7 @@ export const createAuthRouter = (config: IdentityConfig): Router => {
         entitlements: tenantResolution.entitlements,
       };
 
-      const sessionRecord = sessionStore.createSession({
+      const sessionRecord = await sessionStore.createSession({
         tenantId: baseClaims.tenantId,
         workspaceId: baseClaims.workspaceId,
         subject: baseClaims.subject,
@@ -120,19 +153,19 @@ export const createAuthRouter = (config: IdentityConfig): Router => {
       });
 
       const session = await buildSession(baseClaims, config);
-      sessionStore.storeRefreshToken({
+      await sessionStore.storeRefreshToken({
         tokenHash: hashToken(session.refreshToken),
         sessionId: sessionRecord.id,
         expiresAt: new Date(Date.now() + refreshTtlMs),
       });
 
       res.status(200).json(session);
-    } catch (error) {
+    } catch {
       res.status(401).json({ error: "oidc_exchange_failed" });
     }
-  });
+  };
 
-  router.post("/refresh", json(), async (req: Request, res: Response) => {
+  const refresh = async (req: Request, res: Response): Promise<void> => {
     const refreshToken = typeof req.body?.refreshToken === "string" ? req.body.refreshToken : null;
     if (!refreshToken) {
       res.status(400).json({ error: "missing_refresh_token" });
@@ -140,12 +173,12 @@ export const createAuthRouter = (config: IdentityConfig): Router => {
     }
     try {
       const claims = await verifyRefreshToken(refreshToken, toTokenConfig(config));
-      const refreshRecord = sessionStore.consumeRefreshToken(hashToken(refreshToken));
+      const refreshRecord = await sessionStore.consumeRefreshToken(hashToken(refreshToken));
       if (!refreshRecord) {
         res.status(401).json({ error: "refresh_token_revoked" });
         return;
       }
-      const sessionRecord = sessionStore.getSession(refreshRecord.sessionId);
+      const sessionRecord = await sessionStore.getSession(refreshRecord.sessionId);
       if (!sessionRecord) {
         res.status(401).json({ error: "session_not_found" });
         return;
@@ -161,20 +194,42 @@ export const createAuthRouter = (config: IdentityConfig): Router => {
         },
         config,
       );
-      sessionStore.storeRefreshToken({
+      await sessionStore.storeRefreshToken({
         tokenHash: hashToken(session.refreshToken),
         sessionId: sessionRecord.id,
         expiresAt: new Date(Date.now() + refreshTtlMs),
       });
       res.status(200).json(session);
-    } catch (error) {
+    } catch {
       res.status(401).json({ error: "invalid_refresh_token" });
     }
-  });
+  };
 
-  router.post("/logout", json(), (_req: Request, res: Response) => {
+  const logout = async (req: Request, res: Response): Promise<void> => {
+    const refreshToken = typeof req.body?.refreshToken === "string" ? req.body.refreshToken : null;
+    if (!refreshToken) {
+      res.status(400).json({ error: "missing_refresh_token" });
+      return;
+    }
+    const revoked = await sessionStore.consumeRefreshToken(hashToken(refreshToken));
+    if (!revoked) {
+      res.status(401).json({ error: "invalid_refresh_token" });
+      return;
+    }
     res.status(204).send();
-  });
+  };
+
+  return { login, callback, refresh, logout };
+};
+
+export const createAuthRouter = (config: IdentityConfig, deps: AuthRouterDeps = {}): Router => {
+  const router = createRouter();
+  const handlers = createAuthHandlers(config, deps);
+
+  router.post("/login", json(), handlers.login);
+  router.get("/callback", handlers.callback);
+  router.post("/refresh", json(), handlers.refresh);
+  router.post("/logout", json(), handlers.logout);
 
   return router;
 };

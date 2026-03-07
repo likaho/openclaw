@@ -1,9 +1,25 @@
 import { loadConfig } from "./config.js";
+import { createPool, ensureSchema } from "./db.js";
 import { createServer } from "./server.js";
+import { createInMemorySessionStore, createPostgresSessionStore } from "./store.js";
 
-const config = loadConfig();
-const app = createServer(config);
+const bootstrap = async (): Promise<void> => {
+  const config = loadConfig();
+  let sessionStore = createInMemorySessionStore();
+  if (config.databaseUrl) {
+    const pool = createPool(config.databaseUrl);
+    await ensureSchema(pool);
+    sessionStore = createPostgresSessionStore(pool);
+  }
 
-app.listen(config.port, () => {
-  console.log(`Identity service listening on :${config.port}`);
+  const app = createServer(config, { sessionStore });
+
+  app.listen(config.port, () => {
+    console.log(`Identity service listening on :${config.port}`);
+  });
+};
+
+bootstrap().catch((error: unknown) => {
+  console.error("Failed to start Identity service", error);
+  process.exit(1);
 });

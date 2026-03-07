@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { createInMemorySessionStore, createInMemoryStateStore, hashToken } from "./store.js";
 
 describe("session store", () => {
-  it("stores and consumes refresh tokens", () => {
+  it("stores and consumes refresh tokens", async () => {
     const store = createInMemorySessionStore();
-    const session = store.createSession({
+    const session = await store.createSession({
       tenantId: "tenant-a",
       workspaceId: "default",
       subject: "user-1",
@@ -17,15 +17,15 @@ describe("session store", () => {
     });
 
     const tokenHash = hashToken("refresh-token");
-    store.storeRefreshToken({
+    await store.storeRefreshToken({
       tokenHash,
       sessionId: session.id,
       expiresAt: new Date(Date.now() + 1000),
     });
 
-    const consumed = store.consumeRefreshToken(tokenHash);
+    const consumed = await store.consumeRefreshToken(tokenHash);
     expect(consumed?.sessionId).toBe(session.id);
-    expect(store.consumeRefreshToken(tokenHash)).toBeUndefined();
+    await expect(store.consumeRefreshToken(tokenHash)).resolves.toBeUndefined();
   });
 });
 

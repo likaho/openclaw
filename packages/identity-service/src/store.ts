@@ -91,6 +91,16 @@ const mapSessionRow = (row: {
   expiresAt: row.expires_at,
 });
 
+const mapRefreshTokenRow = (row: {
+  token_hash: string;
+  session_id: string;
+  expires_at: Date;
+}): RefreshTokenRecord => ({
+  tokenHash: row.token_hash,
+  sessionId: row.session_id,
+  expiresAt: row.expires_at,
+});
+
 export const createPostgresSessionStore = (pool: Pool): SessionStore => ({
   createSession: async (session) => {
     const id = crypto.randomUUID();
@@ -126,10 +136,7 @@ export const createPostgresSessionStore = (pool: Pool): SessionStore => ({
     return mapSessionRow(result.rows[0]);
   },
   getSession: async (sessionId) => {
-    const result = await pool.query(
-      `select * from identity_sessions where id = $1`,
-      [sessionId],
-    );
+    const result = await pool.query(`select * from identity_sessions where id = $1`, [sessionId]);
     if (!result.rows[0]) {
       return undefined;
     }
@@ -155,9 +162,19 @@ export const createPostgresSessionStore = (pool: Pool): SessionStore => ({
         `select * from identity_refresh_tokens where token_hash = $1`,
         [tokenHash],
       );
-      const record = result.rows[0] as RefreshTokenRecord | undefined;
+      const record = result.rows[0]
+        ? mapRefreshTokenRow(
+            result.rows[0] as {
+              token_hash: string;
+              session_id: string;
+              expires_at: Date;
+            },
+          )
+        : undefined;
       if (record) {
-        await client.query(`delete from identity_refresh_tokens where token_hash = $1`, [tokenHash]);
+        await client.query(`delete from identity_refresh_tokens where token_hash = $1`, [
+          tokenHash,
+        ]);
       }
       await client.query("commit");
       return record;
