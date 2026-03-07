@@ -1,0 +1,196 @@
+openapi: 3.0.3
+info:
+  title: OpenClaw Enterprise Onboarding UX API
+  version: 0.1.0
+servers:
+  - url: http://onboarding-service.openclaw-local.svc.cluster.local:4010
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: Service healthy
+  /v1/onboarding/signup:
+    post:
+      summary: Self-serve sign up
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, displayName]
+              properties:
+                email: { type: string }
+                displayName: { type: string }
+      responses:
+        "201": { description: User created }
+        "400": { description: Invalid payload }
+  /v1/onboarding/invite/accept:
+    post:
+      summary: Accept invite token and create invite-based user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, email, displayName]
+              properties:
+                token: { type: string }
+                email: { type: string }
+                displayName: { type: string }
+      responses:
+        "201": { description: Invite accepted }
+        "404": { description: Invite not found or used }
+  /v1/onboarding/bootstrap:
+    post:
+      summary: Bootstrap tenant/workspace defaults
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tenantId, ownerUserId, profile]
+              properties:
+                tenantId: { type: string }
+                workspaceId: { type: string }
+                ownerUserId: { type: string }
+                profile:
+                  type: string
+                  enum: [starter, regulated]
+      responses:
+        "201": { description: Tenant bootstrap created }
+  /v1/onboarding/wizard-state/{userId}:
+    get:
+      summary: Get onboarding wizard state
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Wizard state }
+        "404": { description: Wizard state not found }
+  /v1/onboarding/wizard-state:
+    post:
+      summary: Set onboarding wizard state
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, stage, completedSteps]
+              properties:
+                userId: { type: string }
+                stage:
+                  type: string
+                  enum: [account, channels, skills, complete]
+                completedSteps:
+                  type: array
+                  items: { type: string }
+      responses:
+        "200": { description: Wizard state saved }
+  /v1/channels/catalog:
+    get:
+      summary: List supported channels and setup capabilities
+      responses:
+        "200": { description: Channel catalog }
+  /v1/channels/connections:
+    post:
+      summary: Create channel connection setup attempt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, channelId, accountLabel]
+              properties:
+                userId: { type: string }
+                channelId: { type: string }
+                accountLabel: { type: string }
+      responses:
+        "201": { description: Connection created }
+  /v1/channels/connections/{id}/verify:
+    post:
+      summary: Verify or fail a connection attempt
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ok]
+              properties:
+                ok: { type: boolean }
+      responses:
+        "200": { description: Connection status updated }
+  /v1/skills/catalog:
+    get:
+      summary: List skills catalog with eligibility hints
+      responses:
+        "200": { description: Skills catalog }
+  /v1/skills/install:
+    post:
+      summary: Start skill install
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, skillKey]
+              properties:
+                userId: { type: string }
+                skillKey: { type: string }
+      responses:
+        "201": { description: Install completed }
+        "400": { description: Install failed }
+  /v1/skills/{skillKey}/configure:
+    post:
+      summary: Configure skill for a user
+      parameters:
+        - in: path
+          name: skillKey
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, enabled]
+              properties:
+                userId: { type: string }
+                enabled: { type: boolean }
+                env:
+                  type: object
+                  additionalProperties: { type: string }
+      responses:
+        "200": { description: Skill config saved }
+  /v1/onboarding/setup/complete:
+    post:
+      summary: Mark setup completed and emit setup event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, tenantId, workspaceId]
+              properties:
+                userId: { type: string }
+                tenantId: { type: string }
+                workspaceId: { type: string }
+      responses:
+        "201": { description: Setup completion recorded }

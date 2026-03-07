@@ -1,221 +1,111 @@
-## Executive architecture plan: OpenClaw → multi-tenant microservices on K8s
+## Executive architecture plan: OpenClaw Enterprise UX + Security platform on K8s
 
-### A) Key design adjustment from current trust model
-Today OpenClaw’s documented model is primarily **single trusted operator per gateway**, not adversarial multi-tenant. For enterprise SSO + multi-tenant, the migration must explicitly introduce:
-- hard tenant authorization boundaries,
-- data isolation controls,
-- service identity and zero-trust network enforcement,
-- policy-governed skill execution isolation.
+### A) Strategic objective
 
-This becomes a **new deployment profile** (enterprise mode), while preserving legacy single-operator mode for existing users.
+OpenClaw Enterprise must deliver two outcomes together:
 
----
+- **Secure-by-default multi-tenant architecture** (SSO, policy, isolation, auditability).
+- **Non-technical user experience** so users can sign up, login, connect channels, and install skills without operator intervention.
 
-## B) Target microservices decomposition
-
-### 1. Edge/API Gateway Service
-- External ingress, WAF, global rate limits
-- JWT verification, tenant context propagation
-- API versioning + routing to internal services
-
-### 2. Identity Service (SSO Broker)
-- OIDC-first, SAML support for enterprise IdPs
-- Tenant-specific IdP config mapping
-- Session/token minting and refresh
-- SCIM provisioning hooks (optional)
-
-### 3. Tenant & Org Service
-- Tenant/workspace lifecycle
-- Role mapping, policy assignment, quotas
-- Feature flags and compliance profile per tenant
-
-### 4. Authorization/Policy Service
-- Central policy decision point (RBAC + ABAC)
-- OPA/Cedar-backed decisions
-- Enforces tenant boundary and skill permissions
-
-### 5. Channel Ingress/Adapter Service
-- Unified ingress for Slack/Discord/Telegram/etc.
-- Converts platform events to canonical internal events
-- Applies tenant mapping and channel auth checks
-
-### 6. Conversation/Memory Service
-- Session state, memory index, retrieval metadata
-- Strict tenant/workspace partitioning
-- Retention, legal hold, delete workflows
-
-### 7. Orchestration Service
-- Agent run lifecycle orchestration
-- Tool call mediation and policy checks
-- Async workflow steps via event bus
-
-### 8. Skill Control Plane
-- Skill registry metadata and versioning
-- Clawhub artifact intake, signature and provenance verification
-- Policy admission (runtime type, network/fs/cpu constraints)
-
-### 9. Skill Runtime Plane
-- Separate runtime pools:
-  - `skill-runner-node`
-  - `skill-runner-python`
-- Sandboxed execution (restricted pods, seccomp, non-root, read-only fs)
-- Per-tenant quotas and network egress allowlists
-
-### 10. Provider Proxy Service
-- Centralized LLM/provider access abstraction
-- Per-tenant key refs and usage controls
-- Cost accounting and policy guardrails
-
-### 11. Audit & Observability Service
-- Immutable tenant-aware audit log
-- Metrics/tracing/log pipeline and SIEM forwarding
-- Compliance evidence exports
+This extends the existing enterprise mode from backend microservices into a full product experience layer.
 
 ---
 
-## C) Kubernetes reference architecture
+## B) Target platform decomposition
 
-### Cluster/security baseline
-- Namespaces by env (`prod`, `staging`), optional regulated tenant partitions
-- Service mesh (Istio/Linkerd): mTLS, traffic policy, retries, circuit-breaking
-- NetworkPolicy default deny everywhere
-- Pod Security Standards: `restricted`
-- Workload Identity (no long-lived static cloud creds)
-- External Secrets + KMS/Vault for secret material
+### Core platform services
 
-### Reliability/scalability baseline
-- HPA for stateless services, VPA recommendations where safe
-- PDB + anti-affinity for critical services
-- Event bus (Kafka/NATS) for decoupled processing
-- Redis for short-lived coordination/cache
-- Managed Postgres with PITR + replicas + backup policy
+1. Edge/API Gateway Service
+2. Identity Service (OIDC/SAML broker)
+3. Tenant & Org Service
+4. Authorization/Policy Service
+5. Channel Ingress/Adapter Service
+6. Conversation/Memory Service
+7. Orchestration Service
+8. Skill Control Plane
+9. Skill Runtime Plane (Node/Python)
+10. Provider Proxy Service
+11. Audit & Observability Service
 
-### Delivery/GitOps
-- Helm chart per service + env overlays
-- ArgoCD/Flux continuous reconciliation
-- Signed images + admission policies (Kyverno/Gatekeeper + cosign verify)
+### New enterprise UX services
 
----
+12. **Enterprise Web Portal**
 
-## D) Multi-tenant data and auth model
+- Non-technical admin/user UI for onboarding, channels, skills, and setup progress.
 
-- Canonical identity claims: `tenant_id`, `workspace_id`, `subject`, `roles`, `entitlements`
-- Every service enforces authz using policy service (never trust edge-only auth)
-- Isolation options by tier:
-  1) shared DB + row-level security,
-  2) schema-per-tenant,
-  3) DB-per-tenant (regulated)
-- Per-tenant encryption contexts/keys via KMS
-- Tenant-scoped rate limits/quotas for noisy-neighbor control
+13. **Onboarding Experience Service**
 
----
+- Self-serve signup, invite acceptance, onboarding wizard state.
 
-## E) SSO design for enterprise login
+14. **Account Setup API**
 
-- Tenant-admin configures IdP metadata (OIDC/SAML)
-- Domain/tenant discovery at login
-- JIT user provisioning + optional SCIM sync
-- Group/claim mapping → internal roles
-- Enforce MFA/conditional-access trust from upstream IdP
-- Short-lived JWT + rotating refresh tokens; service tokens via workload identity
+- Tenant/workspace bootstrap and default profile templates.
 
----
+15. **Channel Provisioning Orchestrator**
 
-## F) Clawhub skill deployment model (Node.js + Python)
+- Unified channel connector flow (OAuth/token/QR/password) with per-channel adapters.
 
-### Control plane flow
-1. Tenant selects skill version from Clawhub
-2. Skill package metadata fetched
-3. Verify signature/provenance + dependency scan (SCA)
-4. Store immutable artifact manifest + SBOM pointer
-5. Evaluate admission policy (tenant + runtime capability profile)
-6. Approve rollout (global/tenant/canary)
+16. **Skills Catalog & Install API**
 
-### Runtime flow
-- Skill invocation sent to runtime scheduler
-- Scheduler picks Node or Python runner pool
-- Runner executes with capability profile:
-  - e.g., `no-network`, `tenant-api-only`, `readonly-http`
-- Ephemeral identity token injected with tenant scope
-- Result returned via event bus + orchestration service
+- ClawHub-backed browsing/install/configure with eligibility/missing-requirement hints.
 
-### Security controls
-- No hostPath mounts for skill pods
-- Read-only filesystem + tmpfs scratch only
-- Egress deny by default, allowlist per skill class
-- Hard execution timeout and memory/CPU caps
-- Full audit trail: who invoked which skill version under which tenant
+17. **Credential Broker**
+
+- SecretRef/Vault mediation so browser and channel clients never receive raw secret material.
+
+18. **User Notification Service**
+
+- Email/in-app notifications for verification, invite status, setup progress, and failures.
+
+19. **Channel Setup Assistant**
+
+- In-channel guided setup UX for WhatsApp/Telegram/Slack and compatible behavior for other channels.
 
 ---
 
-## G) Migration roadmap (strangler pattern)
+## C) Security model updates for UX
 
-### Phase 0 (2–4 weeks): Foundations
-- Define service contracts (OpenAPI/AsyncAPI)
-- Add distributed tracing to monolith
-- Introduce canonical tenant/auth context headers
-
-### Phase 1 (4–8 weeks): Identity/Tenant first
-- Deploy API gateway + identity + tenant services
-- Add SSO and tenant-aware authn/authz
-- Keep existing core logic behind compatibility layer
-
-### Phase 2 (4–8 weeks): Channel and orchestration extraction
-- Move channel ingress to dedicated service
-- Introduce event bus and async processing
-
-### Phase 3 (6–10 weeks): Skill planes extraction
-- Build skill control plane + runtime pools (Node/Python)
-- Integrate Clawhub verification and policy admission
-
-### Phase 4 (6–10 weeks): Data and provider separation
-- Extract conversation/memory and provider proxy services
-- Implement tenant-tier isolation strategy options
-
-### Phase 5 (ongoing): hardening + SLO optimization
-- Chaos/perf tuning, tenancy scaling, compliance automation
+- Signup/invite workflows are policy-governed and tenant-scoped.
+- Credential entry is routed through credential broker abstractions only.
+- Setup assistant commands require explicit authorization and emit audit events.
+- UI actions map to immutable onboarding/channel/skill lifecycle events.
 
 ---
 
-## H) Testing strategy (high-level coverage across all services)
+## D) Interface contracts for UX expansion
 
-### Coverage goals
-- Unit: **>=85% lines/branches** per service
-- Critical security and policy modules: **>=95%**
+### REST contracts (OpenAPI)
 
-### Test layers per service
-1. **Unit tests**
-   - business logic, policy evaluation, tenant guards
-2. **Contract tests**
-   - OpenAPI/AsyncAPI compatibility and backward checks
-3. **Integration tests**
-   - Postgres/Redis/bus interactions using ephemeral test env
-4. **Security tests**
-   - authz bypass attempts, tenant data bleed, token misuse, sandbox escape regressions
-5. **E2E tests**
-   - SSO login → tenant-scoped message → skill invoke → audit verification
-6. **Resilience tests**
-   - service outages, queue lag, failover behavior
-7. **Performance tests**
-   - tenant fairness, p95/p99 latency, autoscaling reactions
+- `POST /v1/onboarding/signup`
+- `POST /v1/onboarding/invite/accept`
+- `POST /v1/onboarding/bootstrap`
+- `GET /v1/onboarding/wizard-state/{userId}`
+- `POST /v1/onboarding/wizard-state`
+- `GET /v1/channels/catalog`
+- `POST /v1/channels/connections`
+- `POST /v1/channels/connections/{id}/verify`
+- `GET /v1/skills/catalog`
+- `POST /v1/skills/install`
+- `POST /v1/skills/{skillKey}/configure`
+- `POST /v1/onboarding/setup/complete`
 
-### CI quality gates
-- fail build on coverage threshold breach
-- fail on critical SAST/SCA findings
-- fail on contract compatibility breaks
-- fail on policy regression suite failures
+### Event contracts (AsyncAPI)
+
+- `onboarding.user.created`
+- `onboarding.tenant.bootstrapped`
+- `channel.connection.created|verified|failed`
+- `skill.install.started|completed|failed`
 
 ---
 
-## I) Suggested first implementation backlog (top priority)
-1. Enterprise auth context spec (`tenant/workspace/subject/roles`) and middleware package
-2. Identity service MVP with OIDC and tenant mapping
-3. Tenant service MVP (org/tenant/workspace CRUD + quota model)
-4. Policy service MVP + shared authorization SDK
-5. Channel ingress canonical event schema and bus integration
-6. Skill control plane MVP + signed artifact verification from Clawhub
-7. Node/Python skill-runner prototypes with sandbox hardening profile
-8. End-to-end enterprise test harness with mocked IdP and multi-tenant fixtures
+## E) Delivery roadmap extension (post-M9)
 
-If you’re happy with this plan, please **toggle to Act mode** and I’ll turn this into an implementation-ready package: concrete service boundaries mapped to current directories, API contracts, Helm chart skeleton, and CI test matrix templates.
- 
+- Milestone 10: UX architecture + contract baseline
+- Milestone 11: Signup/login + invite UX
+- Milestone 12: Account bootstrap wizard
+- Milestone 13: All-channel provisioning UX
+- Milestone 14: Skills catalog/install/configure UX
+- Milestone 15: In-channel guided setup UX
+- Milestone 16: UX hardening, accessibility, E2E readiness
+
+Each milestone requires unit tests, deployment smoke, and numbered completion docs.

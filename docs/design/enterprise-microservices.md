@@ -1,6 +1,6 @@
-# Enterprise Microservices Architecture (Kubernetes + Multi-Tenant)
+# Enterprise Microservices Architecture (Kubernetes + Multi-Tenant + Non-Technical UX)
 
-This document provides component and system architecture diagrams, plus milestone-based delivery with sign-off gates.
+This document provides the secure enterprise service architecture and the UX expansion needed for non-technical setup and operation.
 
 ## System Context (C4 L1)
 
@@ -10,22 +10,31 @@ flowchart TB
     Users[End Users]
     Admins[Tenant Admins]
     IdP[Enterprise IdP\n(OIDC/SAML)]
-    Channels[Channel Platforms\nSlack/Discord/Telegram/etc]
-    Clawhub[Clawhub]\n
+    Channels[Channel Platforms\nWhatsApp/Telegram/Slack/etc]
+    Clawhub[ClawHub]
+    Mail[Email/Notification Providers]
   end
 
   subgraph OpenClawEnterprise[OpenClaw Enterprise Platform]
+    WebPortal[Enterprise Web Portal]
     Edge[API Gateway / Edge]
     Identity[Identity & SSO Service]
+    Onboarding[Onboarding Experience Service]
+    AccountSetup[Account Setup API]
     Tenant[Tenant Service]
     Policy[Policy Service]
-    Orchestrator[Orchestration Service]
+    ChannelProvision[Channel Provisioning Orchestrator]
+    ChannelAssistant[Channel Setup Assistant]
     ChannelIngress[Channel Ingress Service]
+    Orchestrator[Orchestration Service]
+    Conversation[Conversation & Memory Service]
+    ProviderProxy[Provider Proxy]
+    SkillsCatalog[Skills Catalog & Install API]
     SkillControl[Skill Control Plane]
     SkillNode[Skill Runtime\n(Node.js)]
     SkillPython[Skill Runtime\n(Python)]
-    Conversation[Conversation & Memory Service]
-    ProviderProxy[Provider Proxy]
+    CredentialBroker[Credential Broker]
+    Notification[User Notification Service]
     Audit[Audit & Observability]
   end
 
@@ -34,34 +43,51 @@ flowchart TB
     Redis[(Redis)]
     Bus[(Event Bus)]
     ObjectStore[(Object Storage)]
+    Vault[(Vault / SecretRef)]
     SIEM[(SIEM / Log Sink)]
   end
 
-  Users --> Edge
-  Admins --> Edge
+  Users --> WebPortal
+  Admins --> WebPortal
+  WebPortal --> Edge
   Edge --> Identity
+  Edge --> Onboarding
+  Edge --> AccountSetup
+  Edge --> ChannelProvision
+  Edge --> SkillsCatalog
   Identity <--> IdP
-  Edge --> Tenant
-  Edge --> Policy
+  Onboarding --> Tenant
+  AccountSetup --> Tenant
+  ChannelProvision --> CredentialBroker
+  ChannelAssistant --> ChannelProvision
+  ChannelProvision --> ChannelIngress
   Channels --> ChannelIngress
   ChannelIngress --> Bus
   Orchestrator --> Bus
+  Orchestrator --> Conversation
+  Orchestrator --> ProviderProxy
   Orchestrator --> SkillControl
   SkillControl --> SkillNode
   SkillControl --> SkillPython
-  Orchestrator --> Conversation
-  Orchestrator --> ProviderProxy
+  SkillsCatalog --> SkillControl
+  SkillsCatalog --> Clawhub
+  Notification --> Mail
   Audit --> SIEM
 
-  Tenant --> Postgres
   Identity --> Postgres
+  Tenant --> Postgres
   Policy --> Postgres
+  Onboarding --> Postgres
+  AccountSetup --> Postgres
+  ChannelProvision --> Postgres
+  SkillsCatalog --> Postgres
   Conversation --> Postgres
   Conversation --> ObjectStore
   SkillControl --> Postgres
   SkillControl --> ObjectStore
   Orchestrator --> Redis
   Orchestrator --> Bus
+  CredentialBroker --> Vault
   Audit --> Postgres
 ```
 
@@ -69,27 +95,45 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-  Edge[API Gateway] --> Identity[Identity/SSO]
-  Edge --> Tenant[Tenant]
+  WebPortal[Enterprise Web Portal] --> Edge[API Gateway]
+  Edge --> Identity[Identity/SSO]
+  Edge --> Onboarding[Onboarding Experience]
+  Edge --> AccountSetup[Account Setup API]
+  Edge --> ChannelProvision[Channel Provisioning]
+  Edge --> SkillsCatalog[Skills Catalog API]
+
+  Onboarding --> Tenant[Tenant]
+  AccountSetup --> Tenant
   Edge --> Policy[Policy]
-  Edge --> ChannelIngress[Channel Ingress]
+
+  ChannelAssistant[Channel Setup Assistant] --> ChannelProvision
+  ChannelProvision --> CredentialBroker[Credential Broker]
+  ChannelProvision --> ChannelIngress[Channel Ingress]
   ChannelIngress --> Bus[(Event Bus)]
+
   Orchestrator[Orchestration] --> Bus
   Orchestrator --> Conversation[Conversation/Memory]
-  Orchestrator --> SkillControl[Skill Control Plane]
   Orchestrator --> ProviderProxy[Provider Proxy]
+  Orchestrator --> SkillControl[Skill Control Plane]
+
+  SkillsCatalog --> SkillControl
+  SkillsCatalog --> Clawhub[ClawHub]
   SkillControl --> SkillNode[Skill Runtime: Node]
   SkillControl --> SkillPython[Skill Runtime: Python]
-  Conversation --> Postgres[(Postgres)]
-  SkillControl --> ObjectStore[(Object Storage)]
-  Identity --> Postgres
-  Tenant --> Postgres
-  Policy --> Postgres
-  ProviderProxy --> Postgres
+
+  Notification[User Notification] --> Mail[Email/SMS Provider]
   Audit[Audit & Observability] --> SIEM[(SIEM/Logs)]
-  Orchestrator --> Audit
-  ChannelIngress --> Audit
-  SkillControl --> Audit
+
+  Identity --> Postgres[(Postgres)]
+  Tenant --> Postgres
+  Onboarding --> Postgres
+  AccountSetup --> Postgres
+  ChannelProvision --> Postgres
+  SkillsCatalog --> Postgres
+  Conversation --> Postgres
+  SkillControl --> Postgres
+  CredentialBroker --> Vault[(Vault/SecretRef)]
+  Orchestrator --> Redis[(Redis)]
 ```
 
 ## Kubernetes Deployment (Logical)
@@ -99,17 +143,25 @@ flowchart TB
   subgraph NamespaceProd[prod namespace]
     Ingress[Ingress Controller + WAF]
     Mesh[Service Mesh (mTLS)]
+    WebPortal[Enterprise Web Portal]
     Edge[API Gateway]
     Identity[Identity]
+    Onboarding[Onboarding Experience]
+    AccountSetup[Account Setup API]
     Tenant[Tenant]
     Policy[Policy]
+    ChannelProvision[Channel Provisioning]
+    ChannelAssistant[Channel Setup Assistant]
     ChannelIngress[Channel Ingress]
+    SkillsCatalog[Skills Catalog API]
     Orchestrator[Orchestration]
     Conversation[Conversation/Memory]
-    SkillControl[Skill Control Plane]
+    SkillControl[Skill Control]
     SkillNode[Skill Runner Node]
     SkillPython[Skill Runner Python]
     ProviderProxy[Provider Proxy]
+    CredentialBroker[Credential Broker]
+    Notification[Notification]
     Audit[Audit/Observability]
   end
 
@@ -118,138 +170,214 @@ flowchart TB
     Redis[(Redis)]
     Bus[(Event Bus)]
     ObjectStore[(Object Storage)]
+    Vault[(Vault/SecretRef)]
   end
 
+  Ingress --> WebPortal
   Ingress --> Edge
   Edge --> Mesh
   Mesh --> Identity
+  Mesh --> Onboarding
+  Mesh --> AccountSetup
   Mesh --> Tenant
   Mesh --> Policy
+  Mesh --> ChannelProvision
+  Mesh --> ChannelAssistant
   Mesh --> ChannelIngress
+  Mesh --> SkillsCatalog
   Mesh --> Orchestrator
   Mesh --> Conversation
   Mesh --> SkillControl
   Mesh --> ProviderProxy
+  Mesh --> CredentialBroker
+  Mesh --> Notification
   Mesh --> Audit
+
+  ChannelIngress --> Bus
+  Orchestrator --> Bus
   SkillControl --> SkillNode
   SkillControl --> SkillPython
+
   Identity --> Postgres
+  Onboarding --> Postgres
+  AccountSetup --> Postgres
   Tenant --> Postgres
   Policy --> Postgres
+  ChannelProvision --> Postgres
+  SkillsCatalog --> Postgres
   Conversation --> Postgres
   Conversation --> ObjectStore
   Orchestrator --> Redis
-  Orchestrator --> Bus
-  ChannelIngress --> Bus
+  CredentialBroker --> Vault
+  Audit --> Postgres
 ```
 
-## Skill Lifecycle Sequence (Clawhub → Runtime)
+## Sequence: Self-Serve Signup to Bootstrap
+
+```mermaid
+sequenceDiagram
+  participant User as End User
+  participant Portal as Enterprise Web Portal
+  participant Onboarding as Onboarding Service
+  participant Identity as Identity Service
+  participant Notification as Notification Service
+  participant AccountSetup as Account Setup API
+  participant Tenant as Tenant Service
+  participant Audit as Audit Service
+
+  User->>Portal: Submit signup form
+  Portal->>Onboarding: POST /v1/onboarding/signup
+  Onboarding->>Notification: Send verification email
+  Notification-->>User: Verification link
+  User->>Portal: Verify + continue login
+  Portal->>Identity: OIDC login flow
+  Identity-->>Portal: Authenticated session
+  Portal->>AccountSetup: POST /v1/onboarding/bootstrap
+  AccountSetup->>Tenant: Create tenant/workspace defaults
+  AccountSetup->>Audit: Emit onboarding.tenant.bootstrapped
+  AccountSetup-->>Portal: Bootstrap complete
+```
+
+## Sequence: Invite-Only Activation
 
 ```mermaid
 sequenceDiagram
   participant Admin as Tenant Admin
-  participant Clawhub as Clawhub
-  participant SkillCtl as Skill Control Plane
-  participant Policy as Policy Service
-  participant Runner as Skill Runner (Node/Python)
+  participant Portal as Enterprise Web Portal
+  participant Onboarding as Onboarding Service
+  participant User as Invitee
+  participant Identity as Identity Service
   participant Audit as Audit Service
 
-  Admin->>Clawhub: Select skill version
-  Clawhub-->>SkillCtl: Publish metadata + artifact
-  SkillCtl->>Policy: Admission check (tenant, runtime, capabilities)
-  Policy-->>SkillCtl: Allow/Deny
-  SkillCtl->>Audit: Record admission decision
-  SkillCtl->>Runner: Deploy/activate version
-  Admin->>SkillCtl: Invoke skill
-  SkillCtl->>Runner: Execute (sandboxed)
-  Runner-->>SkillCtl: Result + telemetry
-  SkillCtl->>Audit: Record execution
+  Admin->>Portal: Invite user by email
+  Portal->>Onboarding: Issue invite token
+  Onboarding-->>User: Invite email + token
+  User->>Portal: Accept invite
+  Portal->>Onboarding: POST /v1/onboarding/invite/accept
+  Onboarding->>Identity: Create invite-linked identity profile
+  Onboarding->>Audit: Emit onboarding.user.created
+  Onboarding-->>Portal: Invite user activated
 ```
 
-## SSO Login + Tenant Resolution Sequence
+## Sequence: Guided Channel Connection
 
 ```mermaid
 sequenceDiagram
   participant User as User
-  participant Edge as API Gateway
-  participant Identity as Identity Service
-  participant IdP as Enterprise IdP
-  participant Tenant as Tenant Service
-  participant Policy as Policy Service
+  participant Portal as Web Portal
+  participant ChannelProvision as Channel Provisioning
+  participant Broker as Credential Broker
+  participant Ingress as Channel Ingress
+  participant Audit as Audit Service
 
-  User->>Edge: Login request
-  Edge->>Identity: Start SSO flow
-  Identity->>IdP: OIDC/SAML redirect
-  IdP-->>Identity: Auth code + claims
-  Identity->>Tenant: Resolve tenant/workspace
-  Tenant-->>Identity: Tenant context
-  Identity->>Policy: Validate role claims
-  Policy-->>Identity: OK
-  Identity-->>Edge: JWT w/ tenant claims
-  Edge-->>User: Authenticated session
+  User->>Portal: Select channel and account setup
+  Portal->>ChannelProvision: POST /v1/channels/connections
+  ChannelProvision->>Broker: Resolve/setup credentials (OAuth/token/QR)
+  Broker-->>ChannelProvision: Credential reference
+  ChannelProvision->>Ingress: Register channel connection
+  ChannelProvision->>Audit: Emit channel.connection.created
+  ChannelProvision-->>Portal: Connection pending
+  Portal->>ChannelProvision: POST /v1/channels/connections/{id}/verify
+  ChannelProvision->>Audit: Emit verified/failed event
+  ChannelProvision-->>Portal: Connection status
 ```
 
-## Milestones & Sign-off Gates (Component-by-Component)
+## Sequence: Skill Install from UI + Channel Invocation
 
-### Milestone 0 — Architecture Sign-off
-- Diagrams + service boundaries approved
-- Canonical tenant/auth context spec (`tenant_id`, `workspace_id`, `roles`, `entitlements`)
-- Contract skeletons (OpenAPI/AsyncAPI)
+```mermaid
+sequenceDiagram
+  participant User as User
+  participant Portal as Web Portal
+  participant Skills as Skills Catalog API
+  participant Clawhub as ClawHub
+  participant Control as Skill Control Plane
+  participant Assistant as Channel Setup Assistant
+  participant Runtime as Skill Runtime
+  participant Audit as Audit Service
 
-### Milestone 1 — Identity Service (SSO MVP)
-- OIDC flow, JWT issuance, session/refresh handling
-- **Unit tests**: token mint/verify, claim mapping, tenant resolution, invalid issuer/audience
-- **Sign-off**: local K8s login demo
+  User->>Portal: Browse skill catalog
+  Portal->>Skills: GET /v1/skills/catalog
+  Skills->>Clawhub: Resolve metadata and versions
+  User->>Portal: Install skill
+  Portal->>Skills: POST /v1/skills/install
+  Skills->>Control: Admit + activate skill
+  Skills->>Audit: Emit skill.install.completed
+  User->>Assistant: /skill <name> <input>
+  Assistant->>Runtime: Execute skill
+  Runtime->>Audit: Record skill execution
+  Runtime-->>Assistant: Result
+```
 
-### Milestone 2 — Tenant Service
-- Tenant/workspace CRUD, quotas, policy attachment
-- **Unit tests**: isolation checks, quota evaluation, validation errors
-- **Sign-off**: tenant APIs deployed locally
+## Sequence: First-Run Happy Path E2E
 
-### Milestone 3 — Policy Service
-- Central authz decisions (RBAC+ABAC)
-- **Unit tests**: allow/deny matrix, default-deny, cross-tenant protections
-- **Sign-off**: policy outcomes verified
+```mermaid
+sequenceDiagram
+  participant User as User
+  participant Portal as Web Portal
+  participant Onboarding as Onboarding
+  participant Identity as Identity
+  participant ChannelProvision as Channel Provisioning
+  participant Skills as Skills Catalog
+  participant Assistant as Channel Setup Assistant
 
-### Milestone 4 — Channel Ingress Service
-- Canonical event model + webhook adapter (start with 1 channel)
-- **Unit tests**: payload normalization, signature verification, idempotency
-- **Sign-off**: inbound event flow working in local cluster
+  User->>Portal: Self-serve signup
+  Portal->>Onboarding: signup + wizard state
+  User->>Portal: Login
+  Portal->>Identity: OIDC callback success
+  User->>Portal: Bootstrap tenant/workspace
+  Portal->>Onboarding: setup/complete
+  User->>Portal: Connect channel
+  Portal->>ChannelProvision: create + verify connection
+  User->>Portal: Install first skill
+  Portal->>Skills: install + configure
+  User->>Assistant: Send first channel command
+  Assistant-->>User: First successful response
+```
 
-### Milestone 5 — Orchestration Service
-- Workflow state transitions + tool/skill routing
-- **Unit tests**: state machine transitions, retry/backoff, idempotency
-- **Sign-off**: event → run orchestration verified
+## Milestones & Sign-off Gates (including UX expansion)
 
-### Milestone 6 — Skill Control Plane
-- Clawhub intake + signature checks + rollout policy
-- **Unit tests**: admission policy, signature validation, rollout rules
-- **Sign-off**: publish/admit lifecycle verified
+### Milestones 0-9
 
-### Milestone 7 — Skill Runtime Planes
-- 7a: Node runner pool (sandboxed)
-- 7b: Python runner pool (sandboxed)
-- **Unit tests**: runtime bootstrap, timeout enforcement, capability profile checks
-- **Sign-off**: skill execution in local K8s
+Completed secure microservice modernization milestones and readiness hardening.
 
-### Milestone 8 — Conversation + Provider Proxy + Audit
-- Conversation/memory isolation, provider proxy, audit stream
-- **Unit tests**: tenant partitioning, provider policy, audit integrity
-- **Sign-off**: full enterprise flow verified
+### Milestone 10 — UX Architecture + Contract Baseline
 
-### Milestone 9 — Hardening + Readiness
-- Autoscaling, chaos, resilience, performance
-- **Unit tests**: coverage gates pass
-- **Sign-off**: readiness review
+- Deliver UX architecture updates + OpenAPI/AsyncAPI baseline.
+- **Unit tests**: contract lint/validation checks.
+- **Sign-off**: architecture and contract acceptance.
 
-## Local K8s Sign-off Loop
+### Milestone 11 — Signup/Login + Invite UX
 
-Each milestone uses the same loop:
-1. Implement a single service.
-2. Add unit tests for that service.
-3. Run service-level CI checks and coverage gates.
-4. Build image and deploy into local K8s (kind/minikube/k3d).
-5. Run milestone-specific smoke tests.
-6. You review and sign off before next milestone.
+- Self-serve signup + invite acceptance UX/backend.
+- **Unit tests**: signup validation, invite token lifecycle, session/login wiring.
+- **Sign-off**: non-technical signup/login flow approved.
 
-Suggested directory for local manifests: `deploy/k8s/local/` (values + overrides).
+### Milestone 12 — Account Bootstrap Wizard
+
+- Wizard-based tenant/workspace bootstrap and setup state tracking.
+- **Unit tests**: wizard transitions, idempotent bootstrap, failure paths.
+- **Sign-off**: account bootstrap approved.
+
+### Milestone 13 — All-Channels Provisioning UX
+
+- Unified provisioning orchestrator for supported channels.
+- **Unit tests**: per-channel adapter validation and connection verification.
+- **Sign-off**: multi-channel setup approved.
+
+### Milestone 14 — Skills Catalog/Install/Configure UX
+
+- ClawHub-backed skill catalog install/config workflows.
+- **Unit tests**: install orchestration, config persistence, missing requirements.
+- **Sign-off**: skill setup UX approved.
+
+### Milestone 15 — In-Channel Guided Setup UX
+
+- Conversational setup assistant with web wizard state sync.
+- **Unit tests**: command routing, authz, state sync.
+- **Sign-off**: in-channel onboarding approved.
+
+### Milestone 16 — UX Hardening + Accessibility + E2E Readiness
+
+- A11y pass, failure-recovery UX, full E2E readiness integration.
+- **Unit tests**: accessibility and recovery logic.
+- **Sign-off**: enterprise UX go/no-go.

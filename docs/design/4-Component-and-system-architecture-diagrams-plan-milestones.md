@@ -1,245 +1,358 @@
-1. **I can create component + system architecture diagrams**.
-2. **We can implement service-by-service, with unit tests service-by-service**.
-3. **Yes, we can deploy each milestone to your local Kubernetes cluster for sign-off**.
-
-Below is a concrete milestone-driven plan designed for iterative review and approval.
+1. **I can create and maintain component + system architecture diagrams.**
+2. **We can implement and verify UX services milestone-by-milestone with unit tests.**
+3. **Yes, every milestone can be deployed and signed off on local Kubernetes.**
 
 ---
 
-## 1) Diagrams to produce (first deliverable)
+## 1) Diagrams to keep as source of truth
 
-I’ll produce these as Mermaid (easy to review in PRs/docs), and optionally render PNG/SVG later:
+### A. System Context Diagram (C4 L1)
 
-### A. System Context Diagram (C4 Level 1)
-- Actors: End Users, Tenant Admins, Enterprise IdP, Clawhub, Channel Platforms
-- OpenClaw Enterprise Platform boundary
-- External dependencies: Postgres, Redis, Event Bus, Object Storage, SIEM
+- Actors: End users, tenant admins, enterprise IdP, channel platforms, ClawHub.
+- Platform boundary includes both secure core services and enterprise UX services.
 
-### B. Container / Service Diagram (C4 Level 2)
-- API Gateway, Identity, Tenant, Policy, Channel Ingress, Orchestration, Conversation, Skill Control, Skill Runtimes (Node/Python), Provider Proxy, Audit/Observability
-- Data stores and message bus links
+### B. Container / Service Diagram (C4 L2)
+
+- Core services + UX services:
+  - Enterprise Web Portal
+  - Onboarding Experience Service
+  - Account Setup API
+  - Channel Provisioning Orchestrator
+  - Skills Catalog & Install API
+  - Credential Broker
+  - User Notification Service
+  - Channel Setup Assistant
 
 ### C. Kubernetes Deployment Diagram
-- Namespaces, ingress controller, service mesh, deployments/stateful services, HPA, network policies
-- Runner pools and sandbox boundaries
 
-### D. Skill Lifecycle Sequence Diagram
-- Clawhub publish → verify/signature scan → policy admission → rollout → invoke → audit
+- Add UX service deployments, ingress routes, and credential-broker trust boundaries.
 
-### E. SSO Login + Tenant Resolution Sequence
-- User login → IdP redirect → token exchange → tenant mapping → policy check → session issued
+### D. UX Sequence Diagrams
+
+- Self-serve signup -> verify -> login -> bootstrap
+- Invite-only activation
+- Guided channel connection (OAuth/token/QR)
+- Skill install from UI and channel invocation
+- First-run happy path E2E
 
 ---
 
-## 2) Milestones with “build one component + test one component”
+## 2) Updated component milestones (secure platform + UX)
 
 ### Milestone 0 — Foundation & Architecture Sign-off
-**Deliverables**
-- Architecture docs + all diagrams
-- Canonical tenant/auth context spec (`tenant_id`, `workspace_id`, `roles`, `entitlements`)
-- API/event contract skeletons
+
+**Build**
+
+- baseline diagrams, contracts, auth context spec
 
 **Tests**
-- Lint/contract schema validation checks
+
+- contract/schema checks
+
+**Local K8s deploy**
+
+- none required
 
 **Sign-off gate**
-- You approve boundaries, interfaces, and sequencing before coding starts
 
----
+- architecture approval
 
 ### Milestone 1 — Identity Service (SSO MVP)
-**Build**
-- OIDC login flow (tenant-aware)
-- JWT issuance with tenant claims
-- Session/refresh token handling
 
-**Unit tests (first-class)**
-- token mint/verify
-- claim mapping
-- tenant resolution
-- error paths (invalid issuer, expired token, mismatched audience)
+**Build**
+
+- OIDC login, callback, refresh, logout
+
+**Unit tests**
+
+- token lifecycle, claim mapping, tenant resolution
 
 **Local K8s deploy**
-- Deploy Identity + mock IdP + minimal gateway route
-- Verify login end-to-end locally
+
+- identity + keycloak smoke
 
 **Sign-off gate**
-- You test SSO login on local cluster and approve
 
----
+- login flow works
 
 ### Milestone 2 — Tenant Service
+
 **Build**
-- Tenant/workspace CRUD
-- quota/policy attachment model
+
+- tenant/workspace CRUD + quotas
 
 **Unit tests**
-- tenant isolation checks
-- quota evaluation
-- policy assignment validation
+
+- isolation + validation + quota rules
 
 **Local K8s deploy**
-- Deploy Tenant service + Postgres migration
-- Verify tenant-scoped APIs
+
+- tenant API smoke
 
 **Sign-off gate**
-- You approve tenant model and management APIs
 
----
+- tenant model approved
 
-### Milestone 3 — Policy/Authorization Service
+### Milestone 3 — Policy Service
+
 **Build**
-- Central authz decision API (RBAC+ABAC)
-- Shared SDK for other services
+
+- centralized authz decisions
 
 **Unit tests**
-- allow/deny matrix by role and tenant
-- default-deny behavior
-- regression tests for cross-tenant access attempts
+
+- allow/deny matrix and default-deny
 
 **Local K8s deploy**
-- Deploy Policy service and wire Identity + Tenant
+
+- policy integration smoke
 
 **Sign-off gate**
-- You approve policy outcomes with test matrix
 
----
+- policy outcomes approved
 
 ### Milestone 4 — Channel Ingress Service
+
 **Build**
-- Canonical channel event model
-- Webhook adapters (start with one channel for MVP)
+
+- canonical event ingestion + normalization
 
 **Unit tests**
-- payload normalization
-- signature verification logic
-- dedupe/idempotency checks
+
+- payload normalization, signature, idempotency
 
 **Local K8s deploy**
-- Deploy ingress service + queue/topic
+
+- ingress flow smoke
 
 **Sign-off gate**
-- You verify inbound event flow per tenant
 
----
+- inbound flow approved
 
 ### Milestone 5 — Orchestration Service
+
 **Build**
-- workflow state transitions
-- tool/skill invocation routing contracts
+
+- run state machine + routing
 
 **Unit tests**
-- state machine transitions
-- retry/backoff behavior
-- idempotency and correlation handling
+
+- transitions + retries + idempotency
 
 **Local K8s deploy**
-- Deploy orchestrator + connect ingress/policy
+
+- orchestration smoke
 
 **Sign-off gate**
-- You approve event-to-run orchestration behavior
 
----
+- workflow behavior approved
 
 ### Milestone 6 — Skill Control Plane
+
 **Build**
-- Clawhub artifact intake
-- signature/provenance checks
-- rollout policy model
+
+- artifact verification + admission + rollout
 
 **Unit tests**
-- signature validation paths
-- admission policy checks
-- version pinning/rollout rules
+
+- signatures + policy checks
 
 **Local K8s deploy**
-- Deploy control plane API and metadata store
+
+- control plane smoke
 
 **Sign-off gate**
-- You approve skill publish/admission lifecycle
 
----
+- publish/admit lifecycle approved
 
-### Milestone 7 — Skill Runtime Plane (Node then Python)
-**Build (7a)**
-- Node runner pool with sandbox profile
+### Milestone 7 — Skill Runtime Plane
 
-**Unit tests (7a)**
-- runtime bootstrap
-- timeout/resource limit enforcement
-- capability profile enforcement
+**Build**
 
-**Build (7b)**
-- Python runner pool with same controls
+- node/python runners with guardrails
 
-**Unit tests (7b)**
-- parity with node enforcement suite
+**Unit tests**
+
+- timeout/memory/capability enforcement
 
 **Local K8s deploy**
-- Deploy both runner pools; run sample skills from Clawhub
+
+- runtime execution smoke
 
 **Sign-off gate**
-- You approve skill execution safety and functionality
 
----
+- runtime safety approved
 
 ### Milestone 8 — Conversation + Provider Proxy + Audit
+
 **Build**
-- conversation/memory isolation service
-- provider proxy with per-tenant key references
-- immutable audit stream
+
+- tenant memory, provider policy, audit chain
 
 **Unit tests**
-- tenant partitioning + retention logic
-- provider policy checks
-- audit completeness/integrity checks
+
+- partitioning + policy + integrity
 
 **Local K8s deploy**
-- Deploy all three and run integrated flow
+
+- integrated enterprise smoke
 
 **Sign-off gate**
-- You approve enterprise readout (security, traceability, tenancy)
 
----
+- enterprise traceability approved
 
-### Milestone 9 — End-to-End hardening and readiness
+### Milestone 9 — Hardening + Readiness
+
 **Build**
-- performance tuning, autoscaling, failure policies
-- docs/runbooks and release checklist
 
-**Tests**
-- full e2e suite
-- resilience and load tests
-- coverage gate validation
+- readiness/resilience gates and SLO checks
+
+**Unit tests**
+
+- readiness and resilience logic
+
+**Local K8s deploy**
+
+- readiness + resilience smoke
 
 **Sign-off gate**
-- Go/no-go for broader rollout
+
+- go/no-go baseline approved
+
+### Milestone 10 — UX Architecture + Contract Baseline
+
+**Build**
+
+- UX-enhanced architecture diagrams + OpenAPI/AsyncAPI contracts
+
+**Unit tests**
+
+- contract lint/validation checks
+
+**Local K8s deploy**
+
+- gateway route stub + contract verification
+
+**Sign-off gate**
+
+- UX architecture accepted
+
+### Milestone 11 — Signup/Login + Invite UX
+
+**Build**
+
+- self-serve signup + invite acceptance + identity UX wiring
+
+**Unit tests**
+
+- signup validation + invite token lifecycle + login redirect/session
+
+**Local K8s deploy**
+
+- onboarding service login/signup smoke
+
+**Sign-off gate**
+
+- non-technical login flow approved
+
+### Milestone 12 — Account Bootstrap Wizard
+
+**Build**
+
+- tenant/workspace bootstrap wizard with defaults and setup progress
+
+**Unit tests**
+
+- wizard transitions + idempotent bootstrap + rollback handling
+
+**Local K8s deploy**
+
+- bootstrap smoke in local cluster
+
+**Sign-off gate**
+
+- first-run account setup approved
+
+### Milestone 13 — All-Channels Provisioning UX
+
+**Build**
+
+- unified channel provisioning orchestrator and per-channel adapter schema
+
+**Unit tests**
+
+- adapter validation + credential mapping + verification flow
+
+**Local K8s deploy**
+
+- channel provisioning smoke for representative channels
+
+**Sign-off gate**
+
+- channel setup UX approved
+
+### Milestone 14 — Skills Catalog/Install/Configure UX
+
+**Build**
+
+- ClawHub-backed skills catalog + install/config UX
+
+**Unit tests**
+
+- install orchestration + config persistence + missing dependency handling
+
+**Local K8s deploy**
+
+- skills install/config smoke + /skill invocation path
+
+**Sign-off gate**
+
+- non-technical skill setup approved
+
+### Milestone 15 — In-Channel Guided Setup UX
+
+**Build**
+
+- conversational setup assistant and state sync with web wizard
+
+**Unit tests**
+
+- command routing + authorization + progress sync
+
+**Local K8s deploy**
+
+- in-channel setup smoke from client to completion
+
+**Sign-off gate**
+
+- channel-native setup approved
+
+### Milestone 16 — UX Hardening + Accessibility + E2E Readiness
+
+**Build**
+
+- accessibility pass, failure-recovery UX, enterprise E2E runbook integration
+
+**Unit tests**
+
+- a11y component tests + recovery logic
+
+**Local K8s deploy**
+
+- full stack deploy + readiness/resilience + E2E smoke
+
+**Sign-off gate**
+
+- enterprise UX go/no-go
 
 ---
 
-## 3) How local Kubernetes sign-off works (yes, possible)
+## 3) Milestone execution loop
 
-For each milestone we will use the same repeatable loop:
-1. Implement one service.
-2. Add unit tests for that service.
-3. Run service-level CI checks.
-4. Build image and deploy to local K8s (kind/minikube/k3d — whichever you use).
-5. Run smoke/e2e checks for milestone scope.
-6. Demo + your sign-off before moving to next milestone.
-
-We can maintain a `deploy/k8s/local/` profile with:
-- Helm values for local dependencies,
-- seeded test tenants,
-- mock IdP,
-- sample Clawhub skill artifacts.
-
----
-
-## 4) Coverage and quality policy (component-by-component)
-- Per-service unit coverage target: **>=85%**
-- Security-critical services (Identity/Policy/Skill Control): **>=95%**
-- No service progresses milestone without:
-  - coverage gate pass,
-  - contract tests pass,
-  - local K8s smoke pass,
-  - your explicit sign-off.
+1. Implement milestone scope.
+2. Add/update unit tests and typechecks.
+3. Build image and apply local K8s manifests.
+4. Run rollout + smoke checks.
+5. Run readiness/resilience regression checks.
+6. Save numbered completion note with commands/results.
+7. Obtain sign-off before moving forward.

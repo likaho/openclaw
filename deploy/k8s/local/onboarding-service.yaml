@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: onboarding-service
+  namespace: openclaw-local
+  labels:
+    app: onboarding-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: onboarding-service
+  template:
+    metadata:
+      labels:
+        app: onboarding-service
+    spec:
+      containers:
+        - name: onboarding-service
+          image: openclaw/onboarding-service:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4010
+          env:
+            - name: PORT
+              value: "4010"
+            - name: ONBOARDING_DEFAULT_WORKSPACE
+              value: "default"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: onboarding-service
+  namespace: openclaw-local
+spec:
+  type: ClusterIP
+  selector:
+    app: onboarding-service
+  ports:
+    - name: http
+      port: 4010
+      targetPort: 4010

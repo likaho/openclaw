@@ -64,6 +64,7 @@ kubectl -n openclaw-local port-forward svc/orchestration-service 4005:4005
 kubectl -n openclaw-local port-forward svc/skill-control-service 4006:4006
 kubectl -n openclaw-local port-forward svc/skill-runtime-service 4007:4007
 kubectl -n openclaw-local port-forward svc/conversation-service 4008:4008
+kubectl -n openclaw-local port-forward svc/onboarding-service 4010:4010
 ```
 
 8. Build and deploy the Policy service:
@@ -112,4 +113,12 @@ kubectl apply -f deploy/k8s/local/skill-runtime-service.yaml
 docker build -t openclaw/conversation-service:local -f packages/conversation-service/Dockerfile .
 kind load docker-image openclaw/conversation-service:local
 kubectl apply -f deploy/k8s/local/conversation-service.yaml
+```
+
+14. Build and deploy the Onboarding service:
+
+```bash
+docker build -t openclaw/onboarding-service:local -f packages/onboarding-service/Dockerfile .
+kind load docker-image openclaw/onboarding-service:local
+kubectl apply -f deploy/k8s/local/onboarding-service.yaml
 ```

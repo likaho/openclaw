@@ -1,0 +1,119 @@
+asyncapi: 2.6.0
+info:
+  title: OpenClaw Enterprise Onboarding Events
+  version: 0.1.0
+channels:
+  onboarding.user.created:
+    publish:
+      operationId: onboardingUserCreated
+      message:
+        payload:
+          type: object
+          required: [eventType, occurredAt, payload]
+          properties:
+            eventType:
+              type: string
+              enum: [onboarding.user.created]
+            occurredAt:
+              type: string
+            payload:
+              type: object
+  onboarding.tenant.bootstrapped:
+    publish:
+      operationId: onboardingTenantBootstrapped
+      message:
+        payload:
+          type: object
+          required: [eventType, occurredAt, payload]
+          properties:
+            eventType:
+              type: string
+              enum: [onboarding.tenant.bootstrapped]
+            occurredAt:
+              type: string
+            payload:
+              type: object
+  channel.connection.created:
+    publish:
+      operationId: channelConnectionCreated
+      message:
+        payload:
+          type: object
+          properties:
+            eventType:
+              type: string
+              enum: [channel.connection.created]
+            occurredAt:
+              type: string
+            payload:
+              type: object
+  channel.connection.verified:
+    publish:
+      operationId: channelConnectionVerified
+      message:
+        payload:
+          type: object
+          properties:
+            eventType:
+              type: string
+              enum: [channel.connection.verified]
+            occurredAt:
+              type: string
+            payload:
+              type: object
+  channel.connection.failed:
+    publish:
+      operationId: channelConnectionFailed
+      message:
+        payload:
+          type: object
+          properties:
+            eventType:
+              type: string
+              enum: [channel.connection.failed]
+            occurredAt:
+              type: string
+            payload:
+              type: object
+  skill.install.started:
+    publish:
+      operationId: skillInstallStarted
+      message:
+        payload:
+          type: object
+          properties:
+            eventType:
+              type: string
+              enum: [skill.install.started]
+            occurredAt:
+              type: string
+            payload:
+              type: object
+  skill.install.completed:
+    publish:
+      operationId: skillInstallCompleted
+      message:
+        payload:
+          type: object
+          properties:
+            eventType:
+              type: string
+              enum: [skill.install.completed]
+            occurredAt:
+              type: string
+            payload:
+              type: object
+  skill.install.failed:
+    publish:
+      operationId: skillInstallFailed
+      message:
+        payload:
+          type: object
+          properties:
+            eventType:
+              type: string
+              enum: [skill.install.failed]
+            occurredAt:
+              type: string
+            payload:
+              type: object
