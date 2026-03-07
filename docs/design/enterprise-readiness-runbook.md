@@ -38,7 +38,9 @@ kubectl -n openclaw-local exec deployment/conversation-service-hostpath -- \
 
 - Output `ok: true`
 - Every health target returns HTTP `200`
+- Every health target meets latency SLO threshold (`READINESS_MAX_HEALTH_LATENCY_MS`, default `1500`)
 - `auditResult.ok` is `true`
+- Audit check meets latency SLO threshold (`READINESS_MAX_AUDIT_LATENCY_MS`, default `2000`)
 
 ## Failure response
 
@@ -52,6 +54,9 @@ kubectl -n openclaw-local exec deployment/conversation-service-hostpath -- \
 ## Notes
 
 - Endpoint URLs can be overridden via environment variables (`*_HEALTH_URL`, `CONVERSATION_BASE_URL`).
+- Latency thresholds are configurable:
+  - `READINESS_MAX_HEALTH_LATENCY_MS`
+  - `READINESS_MAX_AUDIT_LATENCY_MS`
 - Script exits non-zero when checks fail to support CI/CD gating.
 
 ## Resilience recovery gate

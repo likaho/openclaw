@@ -1,5 +1,16 @@
 #!/usr/bin/env node
 
+const parseInteger = (value, fallback) => {
+  const parsed = Number.parseInt(value ?? "", 10);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    return fallback;
+  }
+  return parsed;
+};
+
+const maxHealthLatencyMs = parseInteger(process.env.READINESS_MAX_HEALTH_LATENCY_MS, 1500);
+const maxAuditLatencyMs = parseInteger(process.env.READINESS_MAX_AUDIT_LATENCY_MS, 2000);
+
 const targets = [
   {
     name: "identity-service",
@@ -89,6 +100,7 @@ const checkConversationAudit = async () => {
   const base =
     process.env.CONVERSATION_BASE_URL ??
     "http://conversation-service-hostpath.openclaw-local.svc.cluster.local:4008";
+  const started = Date.now();
   try {
     const write = await fetch(`${base}/v1/audit/events`, {
       method: "POST",
@@ -107,15 +119,18 @@ const checkConversationAudit = async () => {
     }
     const verify = await fetch(`${base}/v1/audit/verify/tenant-a`);
     const verifyBody = await verify.json();
+    const elapsedMs = Date.now() - started;
     return {
       ok: verify.status === 200 && verifyBody.valid === true,
       status: verify.status,
+      elapsedMs,
       body: verifyBody,
     };
   } catch (error) {
     return {
       ok: false,
       status: 0,
+      elapsedMs: Date.now() - started,
       error: error instanceof Error ? error.message : String(error),
     };
   }
@@ -124,13 +139,28 @@ const checkConversationAudit = async () => {
 const main = async () => {
   const healthResults = await Promise.all(targets.map((target) => checkHealth(target)));
   const auditResult = await checkConversationAudit();
-  const ok = healthResults.every((entry) => entry.ok) && auditResult.ok;
+  const healthWithSlo = healthResults.map((entry) => ({
+    ...entry,
+    latencySloOk: entry.elapsedMs <= maxHealthLatencyMs,
+  }));
+  const auditWithSlo = {
+    ...auditResult,
+    latencySloOk: auditResult.elapsedMs <= maxAuditLatencyMs,
+  };
+  const ok =
+    healthWithSlo.every((entry) => entry.ok && entry.latencySloOk) &&
+    auditWithSlo.ok &&
+    auditWithSlo.latencySloOk;
 
   const report = {
     checkedAt: new Date().toISOString(),
+    thresholds: {
+      maxHealthLatencyMs,
+      maxAuditLatencyMs,
+    },
     ok,
-    healthResults,
-    auditResult,
+    healthResults: healthWithSlo,
+    auditResult: auditWithSlo,
   };
 
   console.log(JSON.stringify(report, null, 2));
