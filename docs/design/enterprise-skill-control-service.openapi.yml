@@ -1,0 +1,138 @@
+openapi: 3.0.3
+info:
+  title: OpenClaw Skill Control Service
+  version: 0.1.0
+  description: Skill control plane service (Milestone 6).
+servers:
+  - url: https://skills.openclaw.local
+paths:
+  /v1/skills/policies:
+    post:
+      summary: Set tenant skill admission policy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantSkillPolicy"
+      responses:
+        "201":
+          description: Policy stored
+  /v1/skills/artifacts:
+    post:
+      summary: Ingest skill artifact and evaluate admission
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArtifactIngestRequest"
+      responses:
+        "201":
+          description: Artifact stored with admission result
+        "400":
+          description: Invalid payload or signature
+  /v1/skills/rollouts:
+    post:
+      summary: Register rollout stage for admitted artifact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RolloutRequest"
+      responses:
+        "201":
+          description: Rollout record created
+        "404":
+          description: Artifact not found
+  /v1/skills/rollouts/{tenantId}/{skillId}:
+    get:
+      summary: List rollout records for tenant skill
+      parameters:
+        - in: path
+          name: tenantId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: skillId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Rollout records
+
+components:
+  schemas:
+    TenantSkillPolicy:
+      type: object
+      required:
+        - tenantId
+        - allowedRuntimes
+        - allowedCapabilities
+        - trustedSkillIds
+      properties:
+        tenantId:
+          type: string
+        allowedRuntimes:
+          type: array
+          items:
+            type: string
+            enum: [node, python]
+        allowedCapabilities:
+          type: array
+          items:
+            type: string
+        trustedSkillIds:
+          type: array
+          items:
+            type: string
+    ArtifactIngestRequest:
+      type: object
+      required:
+        - tenantId
+        - skillId
+        - version
+        - runtime
+        - capabilityProfile
+        - artifactDigest
+        - signature
+      properties:
+        tenantId:
+          type: string
+        skillId:
+          type: string
+        version:
+          type: string
+        runtime:
+          type: string
+          enum: [node, python]
+        capabilityProfile:
+          type: string
+        artifactDigest:
+          type: string
+        sbomDigest:
+          type: string
+        signature:
+          type: string
+    RolloutRequest:
+      type: object
+      required:
+        - tenantId
+        - skillId
+        - version
+        - stage
+      properties:
+        tenantId:
+          type: string
+        skillId:
+          type: string
+        version:
+          type: string
+        stage:
+          type: string
+          enum: [dev, canary, general]
+        canaryPercent:
+          type: integer
