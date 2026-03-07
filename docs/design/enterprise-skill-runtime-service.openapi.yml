@@ -1,0 +1,140 @@
+openapi: 3.0.3
+info:
+  title: OpenClaw Skill Runtime Service
+  version: 0.1.0
+  description: Skill runtime execution service (Milestone 7).
+servers:
+  - url: https://runtime.openclaw.local
+paths:
+  /v1/runtime/jobs:
+    post:
+      summary: Submit runtime execution job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RuntimeJobRequest"
+      responses:
+        "201":
+          description: Job executed and stored
+        "400":
+          description: Invalid job payload or guardrail violation
+    get:
+      summary: List recent jobs
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Job list
+  /v1/runtime/jobs/{jobId}:
+    get:
+      summary: Get runtime job by id
+      parameters:
+        - in: path
+          name: jobId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job found
+        "404":
+          description: Job not found
+  /v1/runtime/pools:
+    get:
+      summary: Get runtime pool status
+      responses:
+        "200":
+          description: Pool status records
+
+components:
+  schemas:
+    RuntimeJobRequest:
+      type: object
+      required:
+        - tenantId
+        - skillId
+        - runtime
+        - capabilityProfile
+        - timeoutMs
+        - memoryMb
+        - payload
+      properties:
+        tenantId:
+          type: string
+        skillId:
+          type: string
+        runtime:
+          type: string
+          enum: [node, python]
+        capabilityProfile:
+          type: string
+        timeoutMs:
+          type: integer
+        memoryMb:
+          type: integer
+        payload:
+          type: string
+    RuntimeJob:
+      type: object
+      required:
+        - id
+        - tenantId
+        - skillId
+        - runtime
+        - capabilityProfile
+        - timeoutMs
+        - memoryMb
+        - payload
+        - status
+      properties:
+        id:
+          type: string
+        tenantId:
+          type: string
+        skillId:
+          type: string
+        runtime:
+          type: string
+          enum: [node, python]
+        capabilityProfile:
+          type: string
+        timeoutMs:
+          type: integer
+        memoryMb:
+          type: integer
+        payload:
+          type: string
+        status:
+          type: string
+          enum: [queued, running, succeeded, failed, rejected]
+        result:
+          type: string
+        error:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+    RuntimePoolStatus:
+      type: object
+      required:
+        - runtime
+        - activeJobs
+        - completedJobs
+        - failedJobs
+      properties:
+        runtime:
+          type: string
+          enum: [node, python]
+        activeJobs:
+          type: integer
+        completedJobs:
+          type: integer
+        failedJobs:
+          type: integer

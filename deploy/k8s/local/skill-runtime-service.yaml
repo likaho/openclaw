@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: skill-runtime-service
+  namespace: openclaw-local
+  labels:
+    app: skill-runtime-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: skill-runtime-service
+  template:
+    metadata:
+      labels:
+        app: skill-runtime-service
+    spec:
+      containers:
+        - name: skill-runtime-service
+          image: openclaw/skill-runtime-service:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4007
+          env:
+            - name: PORT
+              value: "4007"
+            - name: RUNTIME_MAX_TIMEOUT_MS
+              value: "30000"
+            - name: RUNTIME_MAX_MEMORY_MB
+              value: "512"
+            - name: RUNTIME_ALLOWED_CAPABILITIES
+              value: "no-network,http-readonly,tenant-api-only"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: skill-runtime-service
+  namespace: openclaw-local
+spec:
+  type: ClusterIP
+  selector:
+    app: skill-runtime-service
+  ports:
+    - name: http
+      port: 4007
+      targetPort: 4007

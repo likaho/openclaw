@@ -1,6 +1,6 @@
 # Local Kubernetes Deployment
 
-This directory contains manifests and values files for local testing with Keycloak, Identity service, Tenant service, Policy service, Channel Ingress service, Orchestration service, and Skill Control service.
+This directory contains manifests and values files for local testing with Keycloak, Identity service, Tenant service, Policy service, Channel Ingress service, Orchestration service, Skill Control service, and Skill Runtime service.
 
 ## Prerequisites
 
@@ -62,6 +62,7 @@ kubectl -n openclaw-local port-forward svc/policy-service 4003:4003
 kubectl -n openclaw-local port-forward svc/channel-ingress-service 4004:4004
 kubectl -n openclaw-local port-forward svc/orchestration-service 4005:4005
 kubectl -n openclaw-local port-forward svc/skill-control-service 4006:4006
+kubectl -n openclaw-local port-forward svc/skill-runtime-service 4007:4007
 ```
 
 8. Build and deploy the Policy service:
@@ -94,4 +95,12 @@ kubectl apply -f deploy/k8s/local/orchestration-service.yaml
 docker build -t openclaw/skill-control-service:local -f packages/skill-control-service/Dockerfile .
 kind load docker-image openclaw/skill-control-service:local
 kubectl apply -f deploy/k8s/local/skill-control-service.yaml
+```
+
+12. Build and deploy the Skill Runtime service:
+
+```bash
+docker build -t openclaw/skill-runtime-service:local -f packages/skill-runtime-service/Dockerfile .
+kind load docker-image openclaw/skill-runtime-service:local
+kubectl apply -f deploy/k8s/local/skill-runtime-service.yaml
 ```
