@@ -6,7 +6,7 @@ metadata:
   labels:
     app: enterprise-portal-hostpath
 spec:
-  replicas: 1
+  replicas: 0
   selector:
     matchLabels:
       app: enterprise-portal-hostpath
@@ -19,6 +19,13 @@ spec:
         - name: enterprise-portal
           image: node:22-slim
           imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
           command: ["/bin/sh", "-lc"]
           args:
             - |
@@ -35,6 +42,24 @@ spec:
               value: "http://onboarding-service-hostpath:4010"
             - name: IDENTITY_BASE_URL
               value: "http://identity-service:4001"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4020
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4020
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
           volumeMounts:
             - name: workspace
               mountPath: /workspace

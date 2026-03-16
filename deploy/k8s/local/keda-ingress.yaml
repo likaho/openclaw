@@ -1,0 +1,143 @@
+# Centralized Ingress for OpenClaw Services
+# Routes all traffic through KEDA HTTP interceptor proxy via bridge service
+# This enables scale-from-zero without deadlocks
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: openclaw-services-ingress
+  namespace: openclaw-local
+  annotations:
+    # NGINX Ingress Controller annotations
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-next-upstream: "error timeout invalid_header"
+    nginx.ingress.kubernetes.io/proxy-next-upstream-tries: "3"
+    nginx.ingress.kubernetes.io/proxy-next-upstream-timeout: "3600"
+    # Enable buffering for better cold-start handling
+    nginx.ingress.kubernetes.io/proxy-buffering: "on"
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "64k"
+spec:
+  ingressClassName: nginx
+  rules:
+    # Identity Service
+    - host: identity.openclaw.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: keda-interceptor-proxy-bridge
+                port:
+                  number: 8080
+
+    # Tenant Service
+    - host: tenant.openclaw.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: keda-interceptor-proxy-bridge
+                port:
+                  number: 8080
+
+    # Policy Service
+    - host: policy.openclaw.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: keda-interceptor-proxy-bridge
+                port:
+                  number: 8080
+
+    # Channel Ingress Service
+    - host: channel-ingress.openclaw.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: keda-interceptor-proxy-bridge
+                port:
+                  number: 8080
+
+    # Orchestration Service
+    - host: orchestration.openclaw.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: keda-interceptor-proxy-bridge
+                port:
+                  number: 8080
+
+    # Skill Control Service
+    - host: skill-control.openclaw.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: keda-interceptor-proxy-bridge
+                port:
+                  number: 8080
+
+    # Skill Runtime Service
+    - host: skill-runtime.openclaw.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: keda-interceptor-proxy-bridge
+                port:
+                  number: 8080
+
+    # Conversation Service
+    - host: conversation.openclaw.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: keda-interceptor-proxy-bridge
+                port:
+                  number: 8080
+
+    # Onboarding Service
+    - host: onboarding.openclaw.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: keda-interceptor-proxy-bridge
+                port:
+                  number: 8080
+
+    # Enterprise Portal
+    - host: enterprise.openclaw.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: keda-interceptor-proxy-bridge
+                port:
+                  number: 8080

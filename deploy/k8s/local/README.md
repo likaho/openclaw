@@ -2,20 +2,48 @@
 
 This directory contains manifests and values files for local testing with Keycloak, Identity service, Tenant service, Policy service, Channel Ingress service, Orchestration service, Skill Control service, Skill Runtime service, Onboarding service, and Enterprise Portal.
 
+## Features
+
+- **Idle-to-zero scaling**: All services scale to 0 replicas when idle for 60 seconds
+- **Automatic scaling on demand**: Services scale up to 3 replicas when receiving traffic
+- **Resource limits**: Each service has defined CPU and memory limits to prevent resource exhaustion
+- **Health probes**: Readiness and liveness probes for reliable service health monitoring
+
 ## Prerequisites
 
-- Local cluster (kind, minikube, or k3d)
+- Local Kubernetes cluster (kind, minikube, or k3d)
 - Helm installed
+- **KEDA installed** (for idle-to-zero scaling):
 
-## Steps
+  ```bash
+  # Install KEDA using Helm
+  helm repo add kedacore https://kedacore.github.io/charts
+  helm repo update
+  helm install keda kedacore/keda --namespace keda --create-namespace
 
-1. Create the namespace:
+  # Verify KEDA installation
+  kubectl get pods -n keda
+  ```
+
+## Deployment Steps
+
+### 1. Create the namespace:
 
 ```bash
 kubectl apply -f deploy/k8s/local/namespace.yaml
 ```
 
-2. Install Keycloak using the Bitnami chart:
+### 2. Install KEDA ScaledObjects (optional - for idle-to-zero scaling):
+
+If you want all services to scale to zero when idle, apply the KEDA configuration:
+
+```bash
+kubectl apply -f deploy/k8s/local/keda-config.yaml
+```
+
+**Note**: If you prefer to keep services always running (1 replica), skip this step.
+
+### 3. Install Keycloak using the Bitnami chart:
 
 ```bash
 helm repo add bitnami https://charts.bitnami.com/bitnami
@@ -27,33 +55,96 @@ helm install openclaw-keycloak bitnami/keycloak \
   -f deploy/k8s/local/keycloak-values.yaml
 ```
 
-3. Build the Identity service image:
+### 4. Build and load local service images:
+
+For each service, build the Docker image and load it into your cluster:
+
+**Identity service:**
 
 ```bash
-docker build -t openclaw/identity-service:local -f packages/identity-service/Dockerfile .
+docker build -t openclaw/identity-service:latest -f packages/identity-service/Dockerfile .
+kind load docker-image openclaw/identity-service:latest
 ```
 
-4. Load the image into your cluster if needed:
+**Tenant service:**
 
 ```bash
-kind load docker-image openclaw/identity-service:local
+docker build -t openclaw/tenant-service:latest -f packages/tenant-service/Dockerfile .
+kind load docker-image openclaw/tenant-service:latest
 ```
 
-5. Deploy the Identity service:
+**Policy service:**
+
+```bash
+docker build -t openclaw/policy-service:latest -f packages/policy-service/Dockerfile .
+kind load docker-image openclaw/policy-service:latest
+```
+
+**Channel Ingress service:**
+
+```bash
+docker build -t openclaw/channel-ingress-service:latest -f packages/channel-ingress-service/Dockerfile .
+kind load docker-image openclaw/channel-ingress-service:latest
+```
+
+**Orchestration service:**
+
+```bash
+docker build -t openclaw/orchestration-service:latest -f packages/orchestration-service/Dockerfile .
+kind load docker-image openclaw/orchestration-service:latest
+```
+
+**Skill Control service:**
+
+```bash
+docker build -t openclaw/skill-control-service:latest -f packages/skill-control-service/Dockerfile .
+kind load docker-image openclaw/skill-control-service:latest
+```
+
+**Skill Runtime service:**
+
+```bash
+docker build -t openclaw/skill-runtime-service:latest -f packages/skill-runtime-service/Dockerfile .
+kind load docker-image openclaw/skill-runtime-service:latest
+```
+
+**Conversation service:**
+
+```bash
+docker build -t openclaw/conversation-service:latest -f packages/conversation-service/Dockerfile .
+kind load docker-image openclaw/conversation-service:latest
+```
+
+**Onboarding service:**
+
+```bash
+docker build -t openclaw/onboarding-service:latest -f packages/onboarding-service/Dockerfile .
+kind load docker-image openclaw/onboarding-service:latest
+```
+
+### 5. Deploy all services:
 
 ```bash
 kubectl apply -f deploy/k8s/local/identity-service.yaml
+kubectl apply -f deploy/k8s/local/tenant-service.yaml
+kubectl apply -f deploy/k8s/local/policy-service.yaml
+kubectl apply -f deploy/k8s/local/channel-ingress-service.yaml
+kubectl apply -f deploy/k8s/local/orchestration-service.yaml
+kubectl apply -f deploy/k8s/local/skill-control-service.yaml
+kubectl apply -f deploy/k8s/local/skill-runtime-service.yaml
+kubectl apply -f deploy/k8s/local/conversation-service.yaml
+kubectl apply -f deploy/k8s/local/onboarding-service.yaml
 ```
 
-6. Build and deploy the Tenant service:
+### 6. Deploy Enterprise Portal:
 
 ```bash
-docker build -t openclaw/tenant-service:local -f packages/tenant-service/Dockerfile .
-kind load docker-image openclaw/tenant-service:local
-kubectl apply -f deploy/k8s/local/tenant-service.yaml
+kubectl apply -f deploy/k8s/local/enterprise-portal-hostpath.yaml
+kubectl -n openclaw-local rollout status deployment/enterprise-portal-hostpath --timeout=240s
+kubectl -n openclaw-local port-forward svc/enterprise-portal-hostpath 18788:4020
 ```
 
-7. Port forward for local testing:
+## Port Forwarding for Testing
 
 ```bash
 kubectl -n openclaw-local port-forward svc/identity-service 4001:4001
@@ -65,79 +156,69 @@ kubectl -n openclaw-local port-forward svc/skill-control-service 4006:4006
 kubectl -n openclaw-local port-forward svc/skill-runtime-service 4007:4007
 kubectl -n openclaw-local port-forward svc/conversation-service 4008:4008
 kubectl -n openclaw-local port-forward svc/onboarding-service 4010:4010
-kubectl -n openclaw-local port-forward svc/enterprise-portal 4020:4020
+kubectl -n openclaw-local port-forward svc/enterprise-portal-hostpath 4020:4020
 ```
 
-8. Build and deploy the Policy service:
+## Verifying Idle-to-Zero Scaling
+
+1. Check that services are initially scaled to 0 replicas:
+
+   ```bash
+   kubectl get pods -n openclaw-local
+   ```
+
+2. Trigger scaling by accessing a service endpoint:
+
+   ```bash
+   curl http://localhost:4001/health
+   ```
+
+3. Watch the service scale up:
+
+   ```bash
+   kubectl get pods -n openclaw-local -w
+   ```
+
+4. After 60 seconds of no traffic, the service will scale back to 0.
+
+## Managing KEDA ScaledObjects
+
+**Scale a service to always run (1 replica):**
 
 ```bash
-docker build -t openclaw/policy-service:local -f packages/policy-service/Dockerfile .
-kind load docker-image openclaw/policy-service:local
-kubectl apply -f deploy/k8s/local/policy-service.yaml
+kubectl patch scaledobject <service-name>-scaledobject -n openclaw-local --type='json' -p='[{"op": "replace", "path": "/spec/minReplicaCount", "value": 1}]'
 ```
 
-9. Build and deploy the Channel Ingress service:
+**Remove KEDA management for a service:**
 
 ```bash
-docker build -t openclaw/channel-ingress-service:local -f packages/channel-ingress-service/Dockerfile .
-kind load docker-image openclaw/channel-ingress-service:local
-kubectl apply -f deploy/k8s/local/channel-ingress-service.yaml
+kubectl delete scaledobject <service-name>-scaledobject -n openclaw-local
 ```
 
-10. Build and deploy the Orchestration service:
+**Check ScaledObject status:**
 
 ```bash
-docker build -t openclaw/orchestration-service:local -f packages/orchestration-service/Dockerfile .
-kind load docker-image openclaw/orchestration-service:local
-kubectl apply -f deploy/k8s/local/orchestration-service.yaml
+kubectl get scaledobjects -n openclaw-local
+kubectl describe scaledobject <service-name>-scaledobject -n openclaw-local
 ```
 
-11. Build and deploy the Skill Control service:
+## Troubleshooting
+
+**Check service logs:**
 
 ```bash
-docker build -t openclaw/skill-control-service:local -f packages/skill-control-service/Dockerfile .
-kind load docker-image openclaw/skill-control-service:local
-kubectl apply -f deploy/k8s/local/skill-control-service.yaml
+kubectl logs -n openclaw-local -l app=<service-name>
 ```
 
-12. Build and deploy the Skill Runtime service:
+**Check KEDA metrics:**
 
 ```bash
-docker build -t openclaw/skill-runtime-service:local -f packages/skill-runtime-service/Dockerfile .
-kind load docker-image openclaw/skill-runtime-service:local
-kubectl apply -f deploy/k8s/local/skill-runtime-service.yaml
+kubectl get pods -n keda
+kubectl logs -n keda -l app=keda-operator
 ```
 
-13. Build and deploy the Conversation service:
+**Force redeploy a service:**
 
 ```bash
-docker build -t openclaw/conversation-service:local -f packages/conversation-service/Dockerfile .
-kind load docker-image openclaw/conversation-service:local
-kubectl apply -f deploy/k8s/local/conversation-service.yaml
+kubectl rollout restart deployment/<service-name> -n openclaw-local
 ```
-
-14. Build and deploy the Onboarding service:
-
-```bash
-docker build -t openclaw/onboarding-service:local -f packages/onboarding-service/Dockerfile .
-kind load docker-image openclaw/onboarding-service:local
-kubectl apply -f deploy/k8s/local/onboarding-service.yaml
-```
-
-15. Build and deploy the Enterprise Portal:
-
-```bash
-docker build -t openclaw/enterprise-portal:local -f packages/enterprise-portal/Dockerfile .
-kind load docker-image openclaw/enterprise-portal:local
-kubectl apply -f deploy/k8s/local/enterprise-portal.yaml
-```
-
-16. Deploy Enterprise Portal using kubectl-only hostPath mode (for non-kind local clusters):
-
-```bash
-kubectl apply -f deploy/k8s/local/enterprise-portal-hostpath.yaml
-kubectl -n openclaw-local rollout status deployment/enterprise-portal-hostpath --timeout=240s
-kubectl -n openclaw-local port-forward svc/enterprise-portal-hostpath 18788:4020
-```
-
-Open `http://localhost:18788/` for the browser onboarding portal.

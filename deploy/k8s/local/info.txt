@@ -1,0 +1,491 @@
+================================================================================
+        KEDA HTTPScaledObject Deployment Guide for OpenClaw Local
+================================================================================
+
+This document describes the deployment of KEDA HTTPScaledObjects for the
+OpenClaw microservices, replacing the previous ScaledObject configuration
+to solve the scale-from-zero deadlock problem.
+
+================================================================================
+1. WHY HTTPScaledObject Solves the 503 Deadlock Problem
+================================================================================
+
+THE PROBLEM (Old ScaledObject with http trigger):
+-------------------------------------------------
+The previous configuration used standard ScaledObjects with HTTP triggers
+that polled the service's health endpoint:
+
+    triggers:
+      - type: http
+        url: http://identity-service.openclaw-local.svc.cluster.local:4001/health
+
+DEADLOCK FLOW:
+1. Service scales to 0 replicas (idle period elapsed)
+2. Incoming request arrives at Ingress -> routes directly to service
+3. Service has 0 pods -> Ingress returns 503 Service Unavailable
+4. KEDA's http trigger tries to scale up by checking health endpoint
+5. Health check ALSO hits the service with 0 pods -> returns 503
+6. KEDA sees "no traffic/healthy" -> doesn't scale up
+7. DEADLOCK: Service can't scale up because health check is failing
+
+THE SOLUTION (HTTPScaledObject with Interceptor Pattern):
+---------------------------------------------------------
+The HTTPScaledObject introduces an "interceptor" proxy that sits between
+Ingress and the target service.
+
+SCALE-FROM-ZERO FLOW (Fixed):
+1. Service scales to 0 replicas
+2. Incoming request arrives at Ingress -> routes to INTERCEPTOR proxy
+3. Interceptor receives request, checks if target has replicas
+4. Interceptor detects 0 replicas -> triggers KEDA to scale up
+5. Interceptor QUEUES/HOLDS the request while waiting for pod to start
+6. KEDA scales deployment to 1+ replicas
+7. Pod starts, passes readiness probe
+8. Interceptor forwards queued request to now-ready service
+9. Service responds -> Interceptor returns response to client
+10. Client sees successful response (no 503!)
+
+KEY DIFFERENCE:
+- The INTERCEPTOR handles traffic routing (always available via Ingress)
+- The interceptor queues requests when target has 0 replicas
+- Scaling is triggered by the interceptor detecting requests, NOT by polling
+- No deadlock because requests are queued, not dropped
+
+================================================================================
+2. FILES DEPLOYED
+================================================================================
+
+deploy/k8s/local/
+├── httpscaledobjects.yaml     - HTTPScaledObject resources for all services
+├── keda-bridge-service.yaml   - ExternalName service to KEDA interceptor
+├── keda-ingress.yaml          - Centralized Ingress routing via bridge service
+├── test-scale.sh              - Validation script for scale-from-zero testing
+└── info.txt                   - This documentation
+
+The following file is DEPRECATED (can be removed after migration):
+- keda-config.yaml (old ScaledObject configuration)
+
+================================================================================
+3. PREREQUISITES
+================================================================================
+
+1. KEDA installed in cluster (base KEDA):
+   https://keda.sh/docs/2.14/deploy/
+
+2. KEDA HTTP Add-on installed (provides HTTPScaledObject CRD + interceptor):
+   helm repo add kedacore https://kedacore.github.io/charts
+   helm install keda kedacore/keda -n keda --create-namespace
+   helm install keda-http kedacore/http-add-on -n keda
+
+   Or via YAML:
+   kubectl apply -f https://github.com/kedacore/http-add-on/releases/latest/download/http-add-on.yaml
+
+3. NGINX Ingress Controller installed in cluster
+
+4. Namespace created:
+   kubectl apply -f namespace.yaml
+
+================================================================================
+4. DEPLOYMENT STEPS
+================================================================================
+
+STEP 1: Deploy Bridge Service (ExternalName)
+------------- -------------- ----------------
+kubectl apply -f keda-bridge-service.yaml -n openclaw-local
+
+This creates an ExternalName service that points to the KEDA HTTP interceptor
+in the keda namespace, allowing Ingress routing across namespaces.
+
+STEP 2: Deploy HTTPScaledObjects
+---------------------------------
+kubectl apply -f httpscaledobjects.yaml -n openclaw-local
+
+This creates HTTPScaledObject resources for:
+  - identity.openclaw.local (port 4001)
+  - tenant.openclaw.local (port 4002)
+  - policy.openclaw.local (port 4003)
+  - channel-ingress.openclaw.local (port 4004)
+  - orchestration.openclaw.local (port 4005)
+  - skill-control.openclaw.local (port 4006)
+  - skill-runtime.openclaw.local (port 4007)
+  - conversation.openclaw.local (port 4008)
+  - onboarding.openclaw.local (port 4010)
+  - enterprise.openclaw.local (port 4020)
+
+STEP 3: Deploy Centralized Ingress
+----------------------------------
+kubectl apply -f keda-ingress.yaml -n openclaw-local
+
+This creates a single Ingress resource that:
+  - Routes all *.openclaw.local hostnames to keda-interceptor-proxy-bridge
+  - The bridge service forwards traffic to keda-add-ons-http-interceptor-proxy
+  - Sets proxy-read-timeout to 3600s for cold-start handling
+  - Enables proxy buffering for better cold-start handling
+
+STEP 4: Configure DNS / Hosts
+-----------------------------
+For local testing, add entries to /etc/hosts:
+
+    127.0.0.1 identity.openclaw.local
+    127.0.0.1 tenant.openclaw.local
+    127.0.0.1 policy.openclaw.local
+    127.0.0.1 channel-ingress.openclaw.local
+    127.0.0.1 orchestration.openclaw.local
+    127.0.0.1 skill-control.openclaw.local
+    127.0.0.1 skill-runtime.openclaw.local
+    127.0.0.1 conversation.openclaw.local
+    127.0.0.1 onboarding.openclaw.local
+    127.0.0.1 enterprise.openclaw.local
+
+For production, configure DNS A/ALIAS records pointing to your Ingress 
+controller's load balancer IP.
+
+STEP 5: Scale Services to Zero
+------------------------------
+Scale all services to 0 replicas (this enables scale-from-zero on next request):
+
+    kubectl scale deployment identity-service -n openclaw-local --replicas=0
+    kubectl scale deployment tenant-service -n openclaw-local --replicas=0
+    kubectl scale deployment policy-service -n openclaw-local --replicas=0
+    kubectl scale deployment channel-ingress-service -n openclaw-local --replicas=0
+    kubectl scale deployment orchestration-service -n openclaw-local --replicas=0
+    kubectl scale deployment skill-control-service -n openclaw-local --replicas=0
+    kubectl scale deployment skill-runtime-service -n openclaw-local --replicas=0
+    kubectl scale deployment conversation-service -n openclaw-local --replicas=0
+    kubectl scale deployment onboarding-service -n openclaw-local --replicas=0
+    kubectl scale deployment enterprise-portal-hostpath -n openclaw-local --replicas=0
+
+STEP 6: Verify Deployment
+-------------------------
+Check HTTPScaledObject status:
+
+    kubectl get httpscaledobject -n openclaw-local
+
+Check bridge service:
+
+    kubectl get service keda-interceptor-proxy-bridge -n openclaw-local
+
+Check KEDA HTTP add-on components:
+
+    kubectl get pods -n keda -l app.kubernetes.io/name=http-add-on
+
+Check that ScaledObjects were created by the HTTPScaledObject controller:
+
+    kubectl get scaledobjects -n openclaw-local
+
+Check Ingress:
+
+    kubectl get ingress openclaw-services-ingress -n openclaw-local
+
+================================================================================
+5. VERIFICATION COMMANDS
+================================================================================
+
+Check HTTPScaledObject status:
+    kubectl get httpscaledobject -n openclaw-local -o wide
+
+Check HTTPScaledObject details (for one service):
+    kubectl describe httpscaledobject identity-service -n openclaw-local
+
+Check target service pods:
+    kubectl get pods -n openclaw-local -l app=identity-service
+
+Check Ingress status:
+    kubectl get ingress openclaw-services-ingress -n openclaw-local
+    kubectl describe ingress openclaw-services-ingress -n openclaw-local
+
+Check KEDA ScaledObjects (auto-created by HTTPScaledObject controller):
+    kubectl get scaledobjects -n openclaw-local
+
+Check KEDA TriggerAuthentications:
+    kubectl get triggerauthentications -n openclaw-local
+
+Monitor scaling events:
+    kubectl describe httpscaledobject identity-service -n openclaw-local
+
+Watch pods during a scale-from-zero test:
+    kubectl get pods -n openclaw-local -w
+
+================================================================================
+6. TESTING
+================================================================================
+
+Run the validation script:
+
+    chmod +x test-scale.sh
+    ./test-scale.sh
+
+This will:
+  1. Check prerequisites
+  2. Monitor pods starting from 0 replicas
+  3. Send a request to identity.openclaw.local
+  4. Show the service scaling from 0 to 1
+  5. Verify the request succeeds once the pod is ready
+
+Test a specific service:
+
+    ./test-scale.sh --service tenant-service
+
+Test all services (run in a loop):
+
+    for service in identity-service tenant-service policy-service; do
+        echo "Testing $service..."
+        ./test-scale.sh --service $service
+    done
+
+Manual test with curl:
+
+    # First ensure service is scaled to 0
+    kubectl scale deployment identity-service -n openclaw-local --replicas=0
+    
+    # Send request (this triggers scale-up)
+    curl -H "Host: identity.openclaw.local" http://localhost/health
+    
+    # Watch pods scale up
+    kubectl get pods -n openclaw-local -l app=identity-service -w
+
+================================================================================
+7. CONFIGURATION REFERENCE
+================================================================================
+
+HTTPScaledObject Schema (http.keda.sh/v1alpha1):
+-------------------------------------------------
+  apiVersion: http.keda.sh/v1alpha1
+  kind: HTTPScaledObject
+  metadata:
+    name: <service-name>
+  spec:
+    hosts:                          # List of hostnames
+      - <hostname>.openclaw.local
+    scaleTargetRef:
+      name: <deployment-name>
+      kind: Deployment
+      apiVersion: apps/v1
+      service: <service-name>       # Kubernetes service name (REQUIRED)
+      port: <port>                  # Target port (REQUIRED)
+    replicas:
+      min: 0                        # Scale to zero when idle
+      max: 3                        # Maximum replicas under load
+    scaledownPeriod: 60             # Cooldown period in seconds
+    targetPendingRequests: 1        # Scale when 1+ requests pending
+
+Bridge Service (ExternalName):
+--- ------ -------- --------------
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: keda-interceptor-proxy-bridge
+    namespace: openclaw-local
+  spec:
+    type: ExternalName
+    externalName: keda-add-ons-http-interceptor-proxy.keda.svc.cluster.local
+    ports:
+      - port: 8080
+
+Ingress Annotations:
+--------------------
+  nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+      # How long to wait for response during cold start (60 min)
+
+  nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+      # Send timeout for slow responses
+
+  nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+      # Connection timeout
+
+  nginx.ingress.kubernetes.io/proxy-next-upstream: "error timeout invalid_header"
+      # Retry conditions
+
+  nginx.ingress.kubernetes.io/proxy-buffering: "on"
+      # Enable response buffering
+
+================================================================================
+8. HOSTNAME TO SERVICE MAPPING
+================================================================================
+
+Hostname                        Service                     Port
+----                            -----                       ----
+identity.openclaw.local         identity-service            4001
+tenant.openclaw.local           tenant-service              4002
+policy.openclaw.local           policy-service              4003
+channel-ingress.openclaw.local  channel-ingress-service     4004
+orchestration.openclaw.local    orchestration-service       4005
+skill-control.openclaw.local    skill-control-service       4006
+skill-runtime.openclaw.local    skill-runtime-service       4007
+conversation.openclaw.local     conversation-service        4008
+onboarding.openclaw.local       onboarding-service          4010
+enterprise.openclaw.local       enterprise-portal-hostpath  4020
+
+================================================================================
+9. MIGRATION FROM OLD CONFIGURATION
+================================================================================
+
+To migrate from the old ScaledObject configuration:
+
+1. BACKUP first:
+   kubectl get scaledobjects -n openclaw-local -o yaml > /tmp/scaledobjects-backup.yaml
+
+2. DELETE old ScaledObjects:
+   kubectl delete -f keda-config.yaml -n openclaw-local
+
+3. DEPLOY bridge service:
+   kubectl apply -f keda-bridge-service.yaml -n openclaw-local
+
+4. DEPLOY new HTTPScaledObjects:
+   kubectl apply -f httpscaledobjects.yaml -n openclaw-local
+
+5. DEPLOY new Ingress:
+   kubectl apply -f keda-ingress.yaml -n openclaw-local
+
+6. SCALE services to zero:
+   kubectl scale deployment --all -n openclaw-local --replicas=0
+
+7. VERIFY:
+   kubectl get httpscaledobject -n openclaw-local
+   kubectl get scaledobjects -n openclaw-local
+   kubectl get service keda-interceptor-proxy-bridge -n openclaw-local
+
+8. TEST:
+   ./test-scale.sh
+
+================================================================================
+10. TROUBLESHOOTING
+================================================================================
+
+Problem: HTTPScaledObject doesn't scale up on request
+-----------------------------------------------------
+1. Check HTTPScaledObject exists and is valid:
+   kubectl get httpscaledobject <name> -n openclaw-local -o yaml
+
+2. Check ScaledObjects created by controller:
+   kubectl get scaledobjects -n openclaw-local
+
+3. Check bridge service exists:
+   kubectl get service keda-interceptor-proxy-bridge -n openclaw-local
+
+4. Check Ingress routes to bridge service:
+   kubectl describe ingress openclaw-services-ingress -n openclaw-local
+
+5. Check KEDA HTTP add-on is installed:
+   kubectl get pods -n keda -l app.kubernetes.io/name=http-add-on
+
+Problem: Request times out during cold start
+--------------------------------------------
+1. Ensure proxy-read-timeout is high enough (3600s recommended)
+2. Check service startup time (optimize if possible)
+3. For critical services, consider min replicas > 0
+
+Problem: 503 errors despite HTTPScaledObject
+--------------------------------------------
+1. Verify Ingress backend is keda-interceptor-proxy-bridge:
+   kubectl get ingress openclaw-services-ingress -n openclaw-local -o jsonpath='{.spec.rules[*].http.paths[*].backend.service.name}'
+
+2. Check bridge service externalName is correct:
+   kubectl get service keda-interceptor-proxy-bridge -n openclaw-local -o yaml
+
+3. Check interceptor is running:
+   kubectl get pods -n keda -l app.kubernetes.io/name=http-add-on
+
+4. Verify Host header matches HTTPScaledObject spec.hosts:
+   curl -v -H "Host: identity.openclaw.local" http://localhost/health
+
+5. Check interceptor logs:
+   kubectl logs -n keda -l app.kubernetes.io/name=http-add-on-interceptor
+
+Problem: "strict decoding error" on HTTPScaledObject
+----------------------------------------------------
+Ensure you're using the correct schema structure:
+- hosts: is a LIST (use - hostname)
+- scaleTargetRef contains service AND port (REQUIRED fields)
+- replicas has min/max nested under it
+- targetPendingRequests is at spec level (not under scalingMetric)
+- scaledownPeriod is at spec level
+
+Example correct structure:
+  spec:
+    hosts:
+      - identity.openclaw.local
+    scaleTargetRef:
+      name: identity-service
+      kind: Deployment
+      apiVersion: apps/v1
+      service: identity-service
+      port: 4001
+    replicas:
+      min: 0
+      max: 3
+    scaledownPeriod: 60
+    targetPendingRequests: 1
+
+Problem: Ingress "namespace field not allowed in backend"
+-------- ------------ --------------- ------ ----- --------- ------
+Ingress backend services cannot have a namespace field. Use an ExternalName
+bridge service in the same namespace as the Ingress:
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: keda-interceptor-proxy-bridge
+    namespace: openclaw-local
+  spec:
+    type: ExternalName
+    externalName: keda-add-ons-http-interceptor-proxy.keda.svc.cluster.local
+    ports:
+      - port: 8080
+
+================================================================================
+11. ARCHITECTURE DIAGRAM
+================================================================================
+
+OLD (ScaledObject) - DEADLOCK:
+
+  Client -> Ingress -> [SERVICE: 0 pods] -> 503
+                        |
+                        v
+                 KEDA polls health
+                        |
+                        v
+                 [SERVICE: 0 pods] -> 503
+                        |
+                        v
+                 KEDA sees no traffic -> no scale
+                        |
+                        v
+                 DEADLOCK - never scales up
+
+
+NEW (HTTPScaledObject + Bridge Service) - FIXED:
+
+  Client -> Ingress -> [Bridge Service] (ExternalName)
+                          |
+                          v
+                  [KEDA Interceptor] (keda namespace)
+                          |
+                          v
+                  Check target replicas
+                          |
+                      [0 replicas]
+                          |
+        +----------------- +-----------------+
+        |                                    |
+        v                                    v
+  Queue request                       Trigger KEDA
+        |                                    |
+        |                           Scale deployment to 1
+        |                                    |
+        |                           Wait for readiness
+        |                                    |
+        +<-----------+  +-------------------+
+                     |  |
+                     v  v
+               [SERVICE: 1+ pods ready]
+                     |
+                     v
+               Forward request
+                     |
+                     v
+               Response -> Client
+
+================================================================================
+                              END OF DOCUMENT
+================================================================================

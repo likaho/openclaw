@@ -6,7 +6,7 @@ metadata:
   labels:
     app: identity-service
 spec:
-  replicas: 1
+  replicas: 0
   selector:
     matchLabels:
       app: identity-service
@@ -17,8 +17,15 @@ spec:
     spec:
       containers:
         - name: identity-service
-          image: openclaw/identity-service:local
+          image: openclaw/identity-service:latest
           imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
           ports:
             - containerPort: 4001
           env:
@@ -42,6 +49,24 @@ spec:
               value: "default"
             - name: TENANT_DEFAULT_WORKSPACE_ID
               value: "default"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4001
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4001
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
 ---
 apiVersion: v1
 kind: Service

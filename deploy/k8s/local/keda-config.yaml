@@ -1,0 +1,239 @@
+# KEDA Configuration for openclaw-local namespace
+# Install KEDA if not already installed:
+# kubectl apply -f https://kedacore.github.io/charts/keda/templates/crds.yaml
+# helm repo add kedacore https://kedacore.github.io/charts
+# helm install keda kedacore/keda --namespace keda --create-namespace
+
+---
+# KEDA ScaledObjects for all OpenClaw services
+# Scale from 0 to 1 replica when there's traffic, scale back to 0 after 60s idle
+
+# Identity Service
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: identity-service-scaledobject
+  namespace: openclaw-local
+spec:
+  scaleTargetRef:
+    name: identity-service
+  minReplicaCount: 0
+  maxReplicaCount: 3
+  cooldownPeriod: 60
+  triggers:
+    - type: http
+      metadata:
+        url: http://identity-service.openclaw-local.svc.cluster.local:4001/health
+        method: GET
+        requestType: GET
+        activationValue: "1"
+      authenticationRef:
+        name: identity-service-http-auth
+
+# Tenant Service
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: tenant-service-scaledobject
+  namespace: openclaw-local
+spec:
+  scaleTargetRef:
+    name: tenant-service
+  minReplicaCount: 0
+  maxReplicaCount: 3
+  cooldownPeriod: 60
+  triggers:
+    - type: http
+      metadata:
+        url: http://tenant-service.openclaw-local.svc.cluster.local:4002/health
+        method: GET
+        requestType: GET
+        activationValue: "1"
+      authenticationRef:
+        name: tenant-service-http-auth
+
+# Policy Service
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: policy-service-scaledobject
+  namespace: openclaw-local
+spec:
+  scaleTargetRef:
+    name: policy-service
+  minReplicaCount: 0
+  maxReplicaCount: 3
+  cooldownPeriod: 60
+  triggers:
+    - type: http
+      metadata:
+        url: http://policy-service.openclaw-local.svc.cluster.local:4003/health
+        method: GET
+        requestType: GET
+        activationValue: "1"
+      authenticationRef:
+        name: policy-service-http-auth
+
+# Channel Ingress Service
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: channel-ingress-service-scaledobject
+  namespace: openclaw-local
+spec:
+  scaleTargetRef:
+    name: channel-ingress-service
+  minReplicaCount: 0
+  maxReplicaCount: 3
+  cooldownPeriod: 60
+  triggers:
+    - type: http
+      metadata:
+        url: http://channel-ingress-service.openclaw-local.svc.cluster.local:4004/health
+        method: GET
+        requestType: GET
+        activationValue: "1"
+      authenticationRef:
+        name: channel-ingress-service-http-auth
+
+# Orchestration Service
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: orchestration-service-scaledobject
+  namespace: openclaw-local
+spec:
+  scaleTargetRef:
+    name: orchestration-service
+  minReplicaCount: 0
+  maxReplicaCount: 3
+  cooldownPeriod: 60
+  triggers:
+    - type: http
+      metadata:
+        url: http://orchestration-service.openclaw-local.svc.cluster.local:4005/health
+        method: GET
+        requestType: GET
+        activationValue: "1"
+      authenticationRef:
+        name: orchestration-service-http-auth
+
+# Skill Control Service
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: skill-control-service-scaledobject
+  namespace: openclaw-local
+spec:
+  scaleTargetRef:
+    name: skill-control-service
+  minReplicaCount: 0
+  maxReplicaCount: 3
+  cooldownPeriod: 60
+  triggers:
+    - type: http
+      metadata:
+        url: http://skill-control-service.openclaw-local.svc.cluster.local:4006/health
+        method: GET
+        requestType: GET
+        activationValue: "1"
+      authenticationRef:
+        name: skill-control-service-http-auth
+
+# Skill Runtime Service
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: skill-runtime-service-scaledobject
+  namespace: openclaw-local
+spec:
+  scaleTargetRef:
+    name: skill-runtime-service
+  minReplicaCount: 0
+  maxReplicaCount: 3
+  cooldownPeriod: 60
+  triggers:
+    - type: http
+      metadata:
+        url: http://skill-runtime-service.openclaw-local.svc.cluster.local:4007/health
+        method: GET
+        requestType: GET
+        activationValue: "1"
+      authenticationRef:
+        name: skill-runtime-service-http-auth
+
+# Conversation Service
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: conversation-service-scaledobject
+  namespace: openclaw-local
+spec:
+  scaleTargetRef:
+    name: conversation-service
+  minReplicaCount: 0
+  maxReplicaCount: 3
+  cooldownPeriod: 60
+  triggers:
+    - type: http
+      metadata:
+        url: http://conversation-service.openclaw-local.svc.cluster.local:4008/health
+        method: GET
+        requestType: GET
+        activationValue: "1"
+      authenticationRef:
+        name: conversation-service-http-auth
+
+# Onboarding Service
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: onboarding-service-scaledobject
+  namespace: openclaw-local
+spec:
+  scaleTargetRef:
+    name: onboarding-service
+  minReplicaCount: 0
+  maxReplicaCount: 3
+  cooldownPeriod: 60
+  triggers:
+    - type: http
+      metadata:
+        url: http://onboarding-service.openclaw-local.svc.cluster.local:4010/health
+        method: GET
+        requestType: GET
+        activationValue: "1"
+      authenticationRef:
+        name: onboarding-service-http-auth
+
+# Enterprise Portal
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: enterprise-portal-scaledobject
+  namespace: openclaw-local
+spec:
+  scaleTargetRef:
+    name: enterprise-portal-hostpath
+  minReplicaCount: 0
+  maxReplicaCount: 3
+  cooldownPeriod: 60
+  triggers:
+    - type: http
+      metadata:
+        url: http://enterprise-portal-hostpath.openclaw-local.svc.cluster.local:4020/health
+        method: GET
+        requestType: GET
+        activationValue: "1"
+      authenticationRef:
+        name: enterprise-portal-http-auth

@@ -6,7 +6,7 @@ metadata:
   labels:
     app: conversation-service
 spec:
-  replicas: 1
+  replicas: 0
   selector:
     matchLabels:
       app: conversation-service
@@ -17,8 +17,15 @@ spec:
     spec:
       containers:
         - name: conversation-service
-          image: openclaw/conversation-service:local
+          image: openclaw/conversation-service:latest
           imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
           ports:
             - containerPort: 4008
           env:
@@ -34,6 +41,24 @@ spec:
               value: "tenant-a:openai|anthropic;tenant-b:openai"
             - name: TENANT_PROVIDER_KEY_REFS
               value: "tenant-a:openai=vault://tenant-a/openai,anthropic=vault://tenant-a/anthropic;tenant-b:openai=vault://tenant-b/openai"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4008
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4008
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
 ---
 apiVersion: v1
 kind: Service

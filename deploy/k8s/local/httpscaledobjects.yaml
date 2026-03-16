@@ -1,0 +1,225 @@
+# HTTPScaledObjects for OpenClaw Services
+# Using the HTTP Interceptor Pattern to solve scale-from-zero deadlock
+# API Version: http.keda.sh/v1alpha1
+#
+# Schema based on actual KEDA HTTP Add-on v1alpha1 CRD
+
+---
+# Identity Service HTTPScaledObject
+apiVersion: http.keda.sh/v1alpha1
+kind: HTTPScaledObject
+metadata:
+  name: identity-service
+  namespace: openclaw-local
+spec:
+  hosts:
+    - identity.openclaw.local
+  scaleTargetRef:
+    name: identity-service
+    kind: Deployment
+    apiVersion: apps/v1
+    service: identity-service
+    port: 4001
+  replicas:
+    min: 0
+    max: 3
+  scaledownPeriod: 60
+  targetPendingRequests: 1
+
+---
+# Tenant Service HTTPScaledObject
+apiVersion: http.keda.sh/v1alpha1
+kind: HTTPScaledObject
+metadata:
+  name: tenant-service
+  namespace: openclaw-local
+spec:
+  hosts:
+    - tenant.openclaw.local
+  scaleTargetRef:
+    name: tenant-service
+    kind: Deployment
+    apiVersion: apps/v1
+    service: tenant-service
+    port: 4002
+  replicas:
+    min: 0
+    max: 3
+  scaledownPeriod: 60
+  targetPendingRequests: 1
+
+---
+# Policy Service HTTPScaledObject
+apiVersion: http.keda.sh/v1alpha1
+kind: HTTPScaledObject
+metadata:
+  name: policy-service
+  namespace: openclaw-local
+spec:
+  hosts:
+    - policy.openclaw.local
+  scaleTargetRef:
+    name: policy-service
+    kind: Deployment
+    apiVersion: apps/v1
+    service: policy-service
+    port: 4003
+  replicas:
+    min: 0
+    max: 3
+  scaledownPeriod: 60
+  targetPendingRequests: 1
+
+---
+# Channel Ingress Service HTTPScaledObject
+apiVersion: http.keda.sh/v1alpha1
+kind: HTTPScaledObject
+metadata:
+  name: channel-ingress-service
+  namespace: openclaw-local
+spec:
+  hosts:
+    - channel-ingress.openclaw.local
+  scaleTargetRef:
+    name: channel-ingress-service
+    kind: Deployment
+    apiVersion: apps/v1
+    service: channel-ingress-service
+    port: 4004
+  replicas:
+    min: 0
+    max: 3
+  scaledownPeriod: 60
+  targetPendingRequests: 1
+
+---
+# Orchestration Service HTTPScaledObject
+apiVersion: http.keda.sh/v1alpha1
+kind: HTTPScaledObject
+metadata:
+  name: orchestration-service
+  namespace: openclaw-local
+spec:
+  hosts:
+    - orchestration.openclaw.local
+  scaleTargetRef:
+    name: orchestration-service
+    kind: Deployment
+    apiVersion: apps/v1
+    service: orchestration-service
+    port: 4005
+  replicas:
+    min: 0
+    max: 3
+  scaledownPeriod: 60
+  targetPendingRequests: 1
+
+---
+# Skill Control Service HTTPScaledObject
+apiVersion: http.keda.sh/v1alpha1
+kind: HTTPScaledObject
+metadata:
+  name: skill-control-service
+  namespace: openclaw-local
+spec:
+  hosts:
+    - skill-control.openclaw.local
+  scaleTargetRef:
+    name: skill-control-service
+    kind: Deployment
+    apiVersion: apps/v1
+    service: skill-control-service
+    port: 4006
+  replicas:
+    min: 0
+    max: 3
+  scaledownPeriod: 60
+  targetPendingRequests: 1
+
+---
+# Skill Runtime Service HTTPScaledObject
+apiVersion: http.keda.sh/v1alpha1
+kind: HTTPScaledObject
+metadata:
+  name: skill-runtime-service
+  namespace: openclaw-local
+spec:
+  hosts:
+    - skill-runtime.openclaw.local
+  scaleTargetRef:
+    name: skill-runtime-service
+    kind: Deployment
+    apiVersion: apps/v1
+    service: skill-runtime-service
+    port: 4007
+  replicas:
+    min: 0
+    max: 3
+  scaledownPeriod: 60
+  targetPendingRequests: 1
+
+---
+# Conversation Service HTTPScaledObject
+apiVersion: http.keda.sh/v1alpha1
+kind: HTTPScaledObject
+metadata:
+  name: conversation-service
+  namespace: openclaw-local
+spec:
+  hosts:
+    - conversation.openclaw.local
+  scaleTargetRef:
+    name: conversation-service
+    kind: Deployment
+    apiVersion: apps/v1
+    service: conversation-service
+    port: 4008
+  replicas:
+    min: 0
+    max: 3
+  scaledownPeriod: 60
+  targetPendingRequests: 1
+
+---
+# Onboarding Service HTTPScaledObject
+apiVersion: http.keda.sh/v1alpha1
+kind: HTTPScaledObject
+metadata:
+  name: onboarding-service
+  namespace: openclaw-local
+spec:
+  hosts:
+    - onboarding.openclaw.local
+  scaleTargetRef:
+    name: onboarding-service
+    kind: Deployment
+    apiVersion: apps/v1
+    service: onboarding-service
+    port: 4010
+  replicas:
+    min: 0
+    max: 3
+  scaledownPeriod: 60
+  targetPendingRequests: 1
+
+---
+# Enterprise Portal HTTPScaledObject
+apiVersion: http.keda.sh/v1alpha1
+kind: HTTPScaledObject
+metadata:
+  name: enterprise-portal
+  namespace: openclaw-local
+spec:
+  hosts:
+    - enterprise.openclaw.local
+  scaleTargetRef:
+    name: enterprise-portal-hostpath
+    kind: Deployment
+    apiVersion: apps/v1
+    service: enterprise-portal-hostpath
+    port: 4020
+  replicas:
+    min: 0
+    max: 3
+  scaledownPeriod: 60
+  targetPendingRequests: 1

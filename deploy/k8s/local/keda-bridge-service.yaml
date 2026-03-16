@@ -1,0 +1,15 @@
+# Bridge Service for KEDA HTTP Interceptor Proxy
+# This ExternalName service allows Ingress in openclaw-local to route
+# to the KEDA HTTP add-on interceptor proxy in the keda namespace.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: keda-interceptor-proxy-bridge
+  namespace: openclaw-local
+spec:
+  type: ExternalName
+  externalName: keda-add-ons-http-interceptor-proxy.keda.svc.cluster.local
+  ports:
+    - port: 8080
+      protocol: TCP
