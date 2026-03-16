@@ -364,6 +364,7 @@ if [ -n "$SERVICE_ARG" ]; then
         conversation-service) HOST="conversation.openclaw.local" ;;
         onboarding-service) HOST="onboarding.openclaw.local" ;;
         enterprise-portal) HOST="enterprise.openclaw.local" ;;
+        openclaw-keycloak) HOST="openclaw-keycloak.openclaw.local" ;;
     esac
 fi
 

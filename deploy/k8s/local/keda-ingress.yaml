@@ -141,3 +141,15 @@ spec:
                 name: keda-interceptor-proxy-bridge
                 port:
                   number: 8080
+
+    # OpenClaw Keycloak
+    - host: openclaw-keycloak.openclaw.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: keda-interceptor-proxy-bridge
+                port:
+                  number: 8080

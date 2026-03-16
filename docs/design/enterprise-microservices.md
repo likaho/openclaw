@@ -6,15 +6,21 @@ This document provides the secure enterprise service architecture and the UX exp
 
 ```mermaid
 flowchart TB
+  %% =========================
+  %% External
+  %% =========================
   subgraph External
     Users[End Users]
     Admins[Tenant Admins]
-    IdP[Enterprise IdP\n(OIDC/SAML)]
-    Channels[Channel Platforms\nWhatsApp/Telegram/Slack/etc]
+    IdP["Enterprise IdP<br/>(OIDC/SAML)"]
+    Channels[Channel Platforms<br/>WhatsApp / Telegram / Slack / etc]
     Clawhub[ClawHub]
-    Mail[Email/Notification Providers]
+    Mail[Email / Notification Providers]
   end
 
+  %% =========================
+  %% OpenClaw Enterprise Platform
+  %% =========================
   subgraph OpenClawEnterprise[OpenClaw Enterprise Platform]
     WebPortal[Enterprise Web Portal]
     Edge[API Gateway / Edge]
@@ -31,46 +37,62 @@ flowchart TB
     ProviderProxy[Provider Proxy]
     SkillsCatalog[Skills Catalog & Install API]
     SkillControl[Skill Control Plane]
-    SkillNode[Skill Runtime\n(Node.js)]
-    SkillPython[Skill Runtime\n(Python)]
+    SkillNode["Skill Runtime (Node.js)"]
+    SkillPython["Skill Runtime (Python)"]
     CredentialBroker[Credential Broker]
     Notification[User Notification Service]
     Audit[Audit & Observability]
   end
 
+  %% =========================
+  %% Data Layer
+  %% =========================
   subgraph Data
-    Postgres[(Postgres)]
-    Redis[(Redis)]
-    Bus[(Event Bus)]
-    ObjectStore[(Object Storage)]
-    Vault[(Vault / SecretRef)]
-    SIEM[(SIEM / Log Sink)]
+    Postgres["(Postgres)"]
+    Redis["(Redis)"]
+    Bus["(Event Bus)"]
+    ObjectStore["(Object Storage)"]
+    Vault["(Vault / SecretRef)"]
+    SIEM["(SIEM / Log Sink)"]
   end
+
+  %% =========================
+  %% Flows
+  %% =========================
 
   Users --> WebPortal
   Admins --> WebPortal
   WebPortal --> Edge
+
   Edge --> Identity
   Edge --> Onboarding
   Edge --> AccountSetup
   Edge --> ChannelProvision
   Edge --> SkillsCatalog
+
   Identity <--> IdP
+
   Onboarding --> Tenant
   AccountSetup --> Tenant
+
   ChannelProvision --> CredentialBroker
   ChannelAssistant --> ChannelProvision
   ChannelProvision --> ChannelIngress
+
   Channels --> ChannelIngress
   ChannelIngress --> Bus
+
   Orchestrator --> Bus
   Orchestrator --> Conversation
   Orchestrator --> ProviderProxy
   Orchestrator --> SkillControl
+
   SkillControl --> SkillNode
   SkillControl --> SkillPython
+
   SkillsCatalog --> SkillControl
   SkillsCatalog --> Clawhub
+
   Notification --> Mail
   Audit --> SIEM
 
@@ -86,7 +108,6 @@ flowchart TB
   SkillControl --> Postgres
   SkillControl --> ObjectStore
   Orchestrator --> Redis
-  Orchestrator --> Bus
   CredentialBroker --> Vault
   Audit --> Postgres
 ```
@@ -140,32 +161,44 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-  subgraph NamespaceProd[prod namespace]
+  subgraph NamespaceProd [prod namespace]
+    direction TB
+
+    %% Entry Points
     Ingress[Ingress Controller + WAF]
-    Mesh[Service Mesh (mTLS)]
     WebPortal[Enterprise Web Portal]
     Edge[API Gateway]
-    Identity[Identity]
-    Onboarding[Onboarding Experience]
-    AccountSetup[Account Setup API]
-    Tenant[Tenant]
-    Policy[Policy]
-    ChannelProvision[Channel Provisioning]
-    ChannelAssistant[Channel Setup Assistant]
-    ChannelIngress[Channel Ingress]
-    SkillsCatalog[Skills Catalog API]
-    Orchestrator[Orchestration]
-    Conversation[Conversation/Memory]
-    SkillControl[Skill Control]
-    SkillNode[Skill Runner Node]
-    SkillPython[Skill Runner Python]
-    ProviderProxy[Provider Proxy]
-    CredentialBroker[Credential Broker]
-    Notification[Notification]
-    Audit[Audit/Observability]
+    Mesh{Service Mesh - mTLS}
+
+    subgraph CoreServices [Core Business Logic]
+        Identity[Identity]
+        Onboarding[Onboarding]
+        AccountSetup[Account Setup API]
+        Tenant[Tenant]
+        Policy[Policy]
+        Notification[Notification]
+        Audit[Audit/Observability]
+    end
+
+    subgraph ChannelLogic [Channel & Provisioning]
+        ChannelProvision[Channel Provisioning]
+        ChannelAssistant[Channel Assistant]
+        ChannelIngress[Channel Ingress]
+        SkillsCatalog[Skills Catalog API]
+    end
+
+    subgraph ExecutionLayer [Orchestration & Skills]
+        Orchestrator[Orchestration]
+        Conversation[Conversation/Memory]
+        SkillControl[Skill Control]
+        SkillNode[Skill Runner Node]
+        SkillPython[Skill Runner Python]
+        ProviderProxy[Provider Proxy]
+        CredentialBroker[Credential Broker]
+    end
   end
 
-  subgraph DataPlane[Stateful Services]
+  subgraph DataPlane [Stateful Services]
     Postgres[(Postgres HA)]
     Redis[(Redis)]
     Bus[(Event Bus)]
@@ -173,41 +206,26 @@ flowchart TB
     Vault[(Vault/SecretRef)]
   end
 
+  %% Routing Flow
   Ingress --> WebPortal
   Ingress --> Edge
   Edge --> Mesh
-  Mesh --> Identity
-  Mesh --> Onboarding
-  Mesh --> AccountSetup
-  Mesh --> Tenant
-  Mesh --> Policy
-  Mesh --> ChannelProvision
-  Mesh --> ChannelAssistant
-  Mesh --> ChannelIngress
-  Mesh --> SkillsCatalog
-  Mesh --> Orchestrator
-  Mesh --> Conversation
-  Mesh --> SkillControl
-  Mesh --> ProviderProxy
-  Mesh --> CredentialBroker
-  Mesh --> Notification
-  Mesh --> Audit
 
+  %% Mesh to Groups
+  Mesh --> CoreServices
+  Mesh --> ChannelLogic
+  Mesh --> ExecutionLayer
+
+  %% Internal Logic
   ChannelIngress --> Bus
   Orchestrator --> Bus
   SkillControl --> SkillNode
   SkillControl --> SkillPython
 
-  Identity --> Postgres
-  Onboarding --> Postgres
-  AccountSetup --> Postgres
-  Tenant --> Postgres
-  Policy --> Postgres
-  ChannelProvision --> Postgres
-  SkillsCatalog --> Postgres
-  Conversation --> Postgres
-  Conversation --> ObjectStore
+  %% Data Persistence (Consolidated for clarity)
+  CoreServices & ChannelLogic & Conversation --> Postgres
   Orchestrator --> Redis
+  Conversation --> ObjectStore
   CredentialBroker --> Vault
   Audit --> Postgres
 ```

@@ -223,3 +223,25 @@ spec:
     max: 3
   scaledownPeriod: 60
   targetPendingRequests: 1
+
+---
+# OpenClaw Keycloak HTTPScaledObject
+apiVersion: http.keda.sh/v1alpha1
+kind: HTTPScaledObject
+metadata:
+  name: openclaw-keycloak
+  namespace: openclaw-local
+spec:
+  hosts:
+    - openclaw-keycloak.openclaw.local
+  scaleTargetRef:
+    name: openclaw-keycloak
+    kind: Deployment
+    apiVersion: apps/v1
+    service: openclaw-keycloak
+    port: 8080
+  replicas:
+    min: 0
+    max: 3
+  scaledownPeriod: 60
+  targetPendingRequests: 1
