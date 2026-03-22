@@ -83,7 +83,7 @@ The following file is DEPRECATED (can be removed after migration):
 3. NGINX Ingress Controller installed in cluster
 
 4. Namespace created:
-   kubectl apply -f namespace.yaml
+   kubectl apply -f ~/projects/openclaw/deploy/k8s/local/namespace.yaml
 
 ================================================================================
 4. DEPLOYMENT STEPS
@@ -91,14 +91,14 @@ The following file is DEPRECATED (can be removed after migration):
 
 STEP 1: Deploy Bridge Service (ExternalName)
 ------------- -------------- ----------------
-kubectl apply -f keda-bridge-service.yaml -n openclaw-local
+kubectl apply -f ~/projects/openclaw/deploy/k8s/local/keda-bridge-service.yaml -n openclaw-local
 
 This creates an ExternalName service that points to the KEDA HTTP interceptor
 in the keda namespace, allowing Ingress routing across namespaces.
 
 STEP 2: Deploy HTTPScaledObjects
 ---------------------------------
-kubectl apply -f httpscaledobjects.yaml -n openclaw-local
+kubectl apply -f ~/projects/openclaw/deploy/k8s/local/httpscaledobjects.yaml -n openclaw-local
 
 This creates HTTPScaledObject resources for:
   - identity.openclaw.local (port 4001)
@@ -111,10 +111,11 @@ This creates HTTPScaledObject resources for:
   - conversation.openclaw.local (port 4008)
   - onboarding.openclaw.local (port 4010)
   - enterprise.openclaw.local (port 4020)
+  - openclaw-keycloak.openclaw.local (port 8080)
 
 STEP 3: Deploy Centralized Ingress
 ----------------------------------
-kubectl apply -f keda-ingress.yaml -n openclaw-local
+kubectl apply -f ~/projects/openclaw/deploy/k8s/local/keda-ingress.yaml -n openclaw-local
 
 This creates a single Ingress resource that:
   - Routes all *.openclaw.local hostnames to keda-interceptor-proxy-bridge
@@ -136,6 +137,7 @@ For local testing, add entries to /etc/hosts:
     127.0.0.1 conversation.openclaw.local
     127.0.0.1 onboarding.openclaw.local
     127.0.0.1 enterprise.openclaw.local
+    127.0.0.1 openclaw-keycloak.openclaw.local
 
 For production, configure DNS A/ALIAS records pointing to your Ingress 
 controller's load balancer IP.
@@ -154,6 +156,7 @@ Scale all services to 0 replicas (this enables scale-from-zero on next request):
     kubectl scale deployment conversation-service -n openclaw-local --replicas=0
     kubectl scale deployment onboarding-service -n openclaw-local --replicas=0
     kubectl scale deployment enterprise-portal-hostpath -n openclaw-local --replicas=0
+    kubectl scale deployment openclaw-keycloak -n openclaw-local --replicas=0
 
 STEP 6: Verify Deployment
 -------------------------
@@ -315,6 +318,7 @@ skill-runtime.openclaw.local    skill-runtime-service       4007
 conversation.openclaw.local     conversation-service        4008
 onboarding.openclaw.local       onboarding-service          4010
 enterprise.openclaw.local       enterprise-portal-hostpath  4020
+openclaw-keycloak.openclaw.local  openclaw-keycloak         8080
 
 ================================================================================
 9. MIGRATION FROM OLD CONFIGURATION
